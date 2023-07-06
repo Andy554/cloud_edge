@@ -29,6 +29,7 @@ class ClientVar {
         uint64_t sendChunkBatchSize_;
         uint64_t sendRecipeBatchSize_;
         string recipePath_;
+        string upRecipePath_;
 
         /**
          * @brief init the upload buffer
@@ -58,6 +59,7 @@ class ClientVar {
 
         // for handling file recipe
         ofstream _recipeWriteHandler;
+        ofstream _upRecipeWriteHandler;
         ifstream _recipeReadHandler;
         string _tmpQueryBufferStr;
 
@@ -71,6 +73,7 @@ class ClientVar {
         MessageQueue<Container_t>* _inputMQ;
         SendMsgBuffer_t _recvChunkBuf;
         Recipe_t _outRecipe; // the buffer to store ciphertext recipe
+        Recipe_t _outUpRecipe;
 
         // restore buffer parameters
         uint8_t* _readRecipeBuf;
@@ -94,7 +97,7 @@ class ClientVar {
          * @param recipePath the file recipe path
          */
         ClientVar(uint32_t clientID, SSL* clientSSL, 
-            int optType, string& recipePath);
+            int optType, string& recipePath, string& upRecipePath);
 
         /**
          * @brief Destroy the Client Var object

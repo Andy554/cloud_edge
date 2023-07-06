@@ -79,6 +79,10 @@ void EnclaveClient::InitUploadBuffer() {
         CHUNK_HASH_SIZE);
     _inRecipe.recipeNum = 0;
 
+    _upRecipe.entryList = (uint8_t*) malloc(Enclave::sendRecipeBatchSize_ *
+        CHUNK_HASH_SIZE);
+    _upRecipe.recipeNum = 0;
+
     if (indexType_ == EXTREME_BIN || indexType_ == SPARSE_INDEX) {
         _segment.buffer = (uint8_t*) malloc(MAX_SEGMENT_SIZE * sizeof(uint8_t));
         _segment.metadata = (SegmentMeta_t*) malloc((MAX_SEGMENT_SIZE / MIN_CHUNK_SIZE) * 

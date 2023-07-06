@@ -242,6 +242,8 @@ void ServerOptThread::Run(SSL* clientSSL) {
     fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
     string recipePath = config.GetRecipeRootPath() +
         fileName + config.GetRecipeSuffix();
+    string upRecipePath = config.GetUpRecipeRootPath() +
+        fileName + config.GetRecipeSuffix();
     if (!this->CheckFileStatus(recipePath, optType)) {
         recvBuf.header->messageType = SERVER_FILE_NON_EXIST;
         if (!dataSecureChannel_->SendData(clientSSL, recvBuf.sendBuffer,
@@ -277,7 +279,7 @@ void ServerOptThread::Run(SSL* clientSSL) {
             totalUploadReqNum_++;
             tool::Logging(myName_.c_str(), "recv the upload request from client: %u\n",
                 clientID);
-            outClient = new ClientVar(clientID, clientSSL, UPLOAD_OPT, recipePath);
+            outClient = new ClientVar(clientID, clientSSL, UPLOAD_OPT, recipePath, upRecipePath);
             Ecall_Init_Client(eidSGX_, clientID, indexType_, UPLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
                 &outClient->_upOutSGX.sgxClient);
@@ -297,11 +299,6 @@ void ServerOptThread::Run(SSL* clientSSL) {
                 tool::Logging(myName_.c_str(), "send the upload-login response error.\n");
                 exit(EXIT_FAILURE);
             }
-            //在这里检查edge上存的数据量是否达到阈值，如果达到则开始向cloud上传文件
-            // if(){
-            //     thTmp = new boost::thread(attrs, boost::bind(&Uploader::Run, uploaderObj_));
-            //     thList.push_back(thTmp); 
-            // }
             break;
         }
         case DOWNLOAD_OPT: {
@@ -309,7 +306,7 @@ void ServerOptThread::Run(SSL* clientSSL) {
             totalRestoreReqNum_++;
             tool::Logging(myName_.c_str(), "recv the restore request from client: %u\n",
                 clientID);
-            outClient = new ClientVar(clientID, clientSSL, DOWNLOAD_OPT, recipePath);
+            outClient = new ClientVar(clientID, clientSSL, DOWNLOAD_OPT, recipePath, upRecipePath);
             Ecall_Init_Client(eidSGX_, clientID, indexType_, DOWNLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE,
                 &outClient->_resOutSGX.sgxClient);
@@ -358,7 +355,39 @@ void ServerOptThread::Run(SSL* clientSSL) {
     }
     gettimeofday(&eTime, NULL);
     totalTime += tool::GetTimeDiff(sTime, eTime);
+    /*
+    if(){
+        uint32_t edgeID = config.GetClientID();
+        
+        SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageServerIP(), 
+        config.GetStoragePort(), IN_CLIENTSIDE);
+        pair<int, SSL*> serverConnectionRecord = dataSecureChannel->ConnectSSL();
+        SSL* serverConnection = serverConnectionRecord.second;
+        
+        SessionKeyExchange* sessionKeyObj = new SessionKeyExchange(dataSecureChannel);
+        uint8_t sessionKey[CHUNK_HASH_SIZE] = {0};
+        sessionKeyObj->GeneratingSecret(sessionKey, serverConnection, edgeID);
+        
+        uploaderObj_ = new Uploader(dataSecureChannel);
+        uploaderObj_->SetConnectionRecord(serverConnectionRecord);
+        uploaderObj_->SetSessionKey(sessionKey, CHUNK_HASH_SIZE);
+        
+        string updateFile;
+        //TODO：启动一个线程选择上传文件，计算上传指纹
+    
+        string fullName = updateFile + to_string(edgeID);
+        uint8_t fileNameHash[CHUNK_HASH_SIZE] = {0};
+        cryptoObj->GenerateHash(mdCtx, (uint8_t*)&fullName[0],
+            fullName.size(), fileNameHash);
 
+        MessageQueue<Data_t>* chunker2SenderMQ = new MessageQueue<Data_t>(CHUNK_QUEUE_SIZE);
+        uploaderObj_->SetInputMQ(chunker2SenderMQ);
+        uploaderObj_->UploadLogin(config.GetLocalSecret(),fileNameHash);
+        
+        thTmp = new boost::thread(attrs, boost::bind(&Uploader::Run, uploaderObj_));
+        thList.push_back(thTmp); 
+    }
+    */
     // clean up
     for (auto it : thList) {
         delete it;

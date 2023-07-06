@@ -70,6 +70,7 @@ enclave {
         /* persist the buffer to file */
         void Ocall_UpdateFileRecipe([user_check] void* outClient);
         void Ocall_UpdateFileRecipeWithMLEKey([user_check] void* outClient);
+        void Ocall_UpdateFileUpRecipeWithMLEKey([user_check] void* outClient);
 
         /* get uuid */
         void Ocall_CreateUUID([out, size=len] uint8_t* id, size_t len);

@@ -4,6 +4,7 @@ Uploader::Uploader(SSLConnection* dataSecureChannel){
     // set up the configuration
     edgeID_ = config.GetClientID();
     sendChunkBatchSize_ = config.GetSendChunkBatchSize();
+    sendRecipeBatchSize_ = config.GetSendRecipeBatchSize();
     dataSecureChannel_ = dataSecureChannel;
     
     // init the send chunk buffer: header + <chunkSize, chunk content>
@@ -17,7 +18,7 @@ Uploader::Uploader(SSLConnection* dataSecureChannel){
 
     //init the send fp buffer
     sendFpBuf_.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) +
-        sendChunkBatchSize_ * CHUNK_HASH_SIZE);
+        sendRecipeBatchSize_ * CHUNK_HASH_SIZE);
     sendFpBuf_.header = (NetworkHead_t*) sendFpBuf_.sendBuffer;
     sendFpBuf_.header->clientID = edgeID_;
     sendFpBuf_.header->currentItemNum = 0;

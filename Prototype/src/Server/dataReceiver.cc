@@ -81,6 +81,8 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
                     // finalize the file recipe
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
                         outClient->_recipeWriteHandler);
+                    storageCoreObj_->FinalizeUpRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
+                        outClient->_upRecipeWriteHandler);
                     recipeEndNum_++;
                     tool::Logging(myName_.c_str(), "finish process tail batch...====================\n");
                     // update the upload data size

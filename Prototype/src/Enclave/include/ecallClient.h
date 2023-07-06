@@ -99,6 +99,7 @@ class EnclaveClient {
         // for upload
         InQueryEntry_t* _inQueryBase; // dedup buffer
         Recipe_t _inRecipe; // the in-enclave recipe buffer
+        Recipe_t _upRecipe; // the in-enclave recipe buffer for *fp
         uint8_t* _recvBuffer;
         Segment_t _segment;
         unordered_map<string, uint32_t> _localIndex;

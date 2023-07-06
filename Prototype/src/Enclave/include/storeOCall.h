@@ -88,6 +88,13 @@ void Ocall_UpdateFileRecipe(void* outClient);
 void Ocall_UpdateFileRecipeWithMLEKey(void* outClient);
 
 /**
+ * @brief persist the upRecipe buffer to file (with MLE Key version)
+ * 
+ * @param outClient the out-enclave client ptr
+ */
+void Ocall_UpdateFileUpRecipeWithMLEKey(void* outClient);
+
+/**
  * @brief update the outside index store 
  * 
  * @param ret return result

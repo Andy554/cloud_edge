@@ -157,6 +157,53 @@ void EnclaveBase::UpdateFileRecipeWithMLEKey(string& chunkHash, Recipe_t* inReci
 }
 
 /**
+* @brief update the file upRecipe
+* 
+* @param upRecipe the in-enclave upRecipe buffer
+* @param chunkBuffer the  chunk data buffer
+* @param chunkSize the chunkSize
+* @param mleKey the key to enc the chunk
+* @param upOutSGX the upload out-enclave var
+* @param sgxClient the in-enclave client
+*/
+void EnclaveBase::UpdateFileUpRecipeWithMLEKey(Recipe_t* upRecipe, uint8_t* chunkBuffer, 
+    uint32_t chunkSize, uint8_t* mleKey, UpOutSGX_t* upOutSGX, EnclaveClient* sgxClient){
+    uint8_t chunkHash[CHUNK_HASH_SIZE];
+    string chunkHashStr;
+
+    EVP_CIPHER_CTX* cipher = sgxClient->_cipherCtx;
+    EVP_MD_CTX* mdCtx = sgxClient->_mdCtx;
+
+    uint8_t tmpCompressedChunk[MAX_CHUNK_SIZE];
+    int tmpCompressedChunkSize = 0;
+    uint8_t tmpCipherChunk[MAX_CHUNK_SIZE];
+    tmpCompressedChunkSize = LZ4_compress_fast((char*)(chunkBuffer), (char*)tmpCompressedChunk,
+        chunkSize, chunkSize, 3);
+    if (tmpCompressedChunkSize <= 0) {
+        tmpCompressedChunkSize = chunkSize;
+    }
+    cryptoObj_->EncryptWithKey(cipher, tmpCompressedChunk, tmpCompressedChunkSize,
+        mleKey, tmpCipherChunk);
+
+    cryptoObj_->GenerateHash(mdCtx, tmpCipherChunk,
+        tmpCompressedChunkSize, chunkHash);
+    chunkHashStr.assign((char*)chunkHash, CHUNK_HASH_SIZE);
+    memcpy(upRecipe->entryList + upRecipe->recipeNum * CHUNK_HASH_SIZE, 
+        chunkHashStr.c_str(), CHUNK_HASH_SIZE);
+    upRecipe->recipeNum++;
+
+    if ((upRecipe->recipeNum % Enclave::sendRecipeBatchSize_) == 0) {
+        EnclaveClient* sgxClient = (EnclaveClient*)upOutSGX->sgxClient;
+        Recipe_t* outUpRecipe = (Recipe_t*)upOutSGX->outUpRecipe;
+        outUpRecipe->recipeNum = upRecipe->recipeNum;
+        Ocall_UpdateFileUpRecipeWithMLEKey(upOutSGX->outClient);
+        upRecipe->recipeNum = 0;
+    }
+
+    return ;
+}
+
+/**
  * @brief process an unique chunk
  * 
  * @param chunkAddr the chunk address

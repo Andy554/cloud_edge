@@ -30,6 +30,7 @@ private:
     
     // deduplication setting 
     string recipeRootPath_;
+    string upRecipeRootPath_;
     string recipeSuffix_ = "-recipe";
     string containerRootPath_;
     string containerSuffix_ = "-container";
@@ -107,6 +108,10 @@ public:
     
     inline string GetRecipeRootPath() {
         return recipeRootPath_;
+    }
+
+    inline string GetUpRecipeRootPath() {
+        return upRecipeRootPath_;
     }
 
     inline string GetRecipeSuffix() {

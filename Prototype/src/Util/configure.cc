@@ -46,6 +46,7 @@ void Configure::ReadConf(std::string path) {
 
     // StorageCore configure
     recipeRootPath_ = root.get<std::string>("StorageCore.recipeRootPath_");
+    upRecipeRootPath_ = root.get<std::string>("StorageCore.upRecipeRootPath_");
     containerRootPath_ = root.get<std::string>("StorageCore.containerRootPath_");
     fp2ChunkDBName_ = root.get<std::string>("StorageCore.fp2ChunkDBName_");
     topKParam_ = root.get<uint64_t>("StorageCore.topKParam_");

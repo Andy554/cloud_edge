@@ -161,7 +161,6 @@ void EcallStorageCore::SaveChunkWithMLEKey(char* chunkData, uint32_t chunkSize,
         // create a new container for this new chunk
 
         // 转换num到char
-        Enclave::Logging("DEBUG","Enter else\n");
         uint8_t charChunkNum[4];
         charChunkNum[0] = (inContainer->curNum >> 0) & 255;
         charChunkNum[1] = (inContainer->curNum >> 8) & 255;

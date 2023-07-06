@@ -90,6 +90,20 @@ void Ocall_UpdateFileRecipeWithMLEKey(void* outClient) {
 }
 
 /**
+ * @brief persist the upRecipe buffer to file (with MLE Key version)
+ * 
+ * @param outClient the out-enclave client ptr
+ */
+void Ocall_UpdateFileUpRecipeWithMLEKey(void* outClient) {
+    ClientVar* outClientPtr = (ClientVar*)outClient;
+    Recipe_t* outUpRecipe = &outClientPtr->_outUpRecipe;
+    storageCoreObj_->UpdateRecipeToFileWithMLEKey(outUpRecipe->entryList,
+        outUpRecipe->recipeNum, outClientPtr->_upRecipeWriteHandler);
+    outUpRecipe->recipeNum = 0;
+    return ;
+}
+
+/**
  * @brief exit the enclave with error message
  * 
  * @param error_msg the error message

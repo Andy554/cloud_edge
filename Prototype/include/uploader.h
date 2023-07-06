@@ -13,6 +13,7 @@ class Uploader {
         
         // config
         uint64_t sendChunkBatchSize_ = 0;
+        uint64_t sendRecipeBatchSize_ = 0;
         uint32_t edgeID_;
 
         // for security channel encryption

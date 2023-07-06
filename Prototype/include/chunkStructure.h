@@ -188,6 +188,7 @@ typedef struct {
 typedef struct {
     Container_t* curContainer;
     Recipe_t* outRecipe;
+    Recipe_t* outUpRecipe;
     OutQuery_t* outQuery;
     void* outClient;
     void* sgxClient;

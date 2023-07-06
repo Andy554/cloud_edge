@@ -29,6 +29,15 @@ class StorageCore {
             ofstream& fileRecipeHandler);
 
         /**
+         * @brief finalize the file recipe
+         * 
+         * @param recipeHead the recipe header
+         * @param fileRecipeHandler the recipe file handler
+         */
+        void FinalizeUpRecipe(FileRecipeHead_t* recipeHead, 
+            ofstream& fileRecipeHandler);
+
+        /**
          * @brief update the file recipe to the disk
          * 
          * @param recipeBuffer the pointer to the recipe buffer

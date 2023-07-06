@@ -86,6 +86,7 @@ void EcallFreqIndex::ProcessTailBatch(UpOutSGX_t* upOutSGX) {
     // the in-enclave info
     EnclaveClient* sgxClient = (EnclaveClient*)upOutSGX->sgxClient;
     Recipe_t* inRecipe = &sgxClient->_inRecipe;
+    Recipe_t* upRecipe = &sgxClient->_upRecipe;
     EVP_CIPHER_CTX* cipherCtx = sgxClient->_cipherCtx;
     uint8_t* masterKey = sgxClient->_masterKey;
 
@@ -98,6 +99,11 @@ void EcallFreqIndex::ProcessTailBatch(UpOutSGX_t* upOutSGX) {
         outRecipe->recipeNum = inRecipe->recipeNum;
         Ocall_UpdateFileRecipeWithMLEKey(upOutSGX->outClient);
         inRecipe->recipeNum = 0;
+
+        Recipe_t* outUpRecipe = (Recipe_t*)upOutSGX->outUpRecipe;
+        outUpRecipe->recipeNum = upRecipe->recipeNum;
+        Ocall_UpdateFileUpRecipeWithMLEKey(upOutSGX->outClient);
+        upRecipe->recipeNum = 0;
     }
 
     if (sgxClient->_inContainer.curSize != 0) {
@@ -303,6 +309,10 @@ void EcallFreqIndex::ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf,
     uint8_t* recvBuffer = sgxClient->_recvBuffer;
     uint8_t* sessionKey = sgxClient->_sessionKey;
     Recipe_t* inRecipe = &sgxClient->_inRecipe;
+
+    //recipe with *fp for update file to cloud
+    Recipe_t* upRecipe = &sgxClient->_upRecipe;
+
     InQueryEntry_t* inQueryBase = sgxClient->_inQueryBase;
     OutQueryEntry_t* outQueryBase = upOutSGX->outQuery->outQueryBase;
 
@@ -347,6 +357,10 @@ void EcallFreqIndex::ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf,
         // 计算hash并更新到entry中
         cryptoObj_->GenerateHash(mdCtx, recvBuffer + currentOffset,
             inQueryEntry->chunkSize, inQueryEntry->chunkHash);
+
+        this->UpdateFileUpRecipeWithMLEKey(upRecipe,recvBuffer + currentOffset, 
+            inQueryEntry->chunkSize, inQueryEntry->chunkHash, upOutSGX, sgxClient);
+        
         currentOffset += inQueryEntry->chunkSize;
         
         // 生成MLE Key， 此处直接用chunk hash作为MLE key

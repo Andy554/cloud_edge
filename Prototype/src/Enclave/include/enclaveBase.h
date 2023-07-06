@@ -74,6 +74,19 @@ class EnclaveBase {
          */
         void UpdateFileRecipeWithMLEKey(string& chunkHash, Recipe_t* inRecipe,
             UpOutSGX_t* upOutSGX);
+        
+        /**
+         * @brief update the file upRecipe
+         * 
+         * @param upRecipe the in-enclave upRecipe buffer
+         * @param chunkBuffer the  chunk data buffer
+         * @param chunkSize the chunkSize
+         * @param mleKey the key to enc the chunk
+         * @param upOutSGX the upload out-enclave var
+         * @param sgxClient the in-enclave client
+         */
+        void UpdateFileUpRecipeWithMLEKey(Recipe_t* upRecipe, uint8_t* chunkBuffer, 
+            uint32_t chunkSize, uint8_t* mleKey, UpOutSGX_t* upOutSGX, EnclaveClient* sgxClient);
 
         /**
          * @brief process an unique chunk

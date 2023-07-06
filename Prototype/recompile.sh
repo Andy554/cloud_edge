@@ -7,7 +7,7 @@ if [ -d "./bin" ]; then
     make -j4
     cd ..
     cd ./bin
-    mkdir Containers Recipes
+    mkdir Containers Recipes UpRecipes
     cd ..
     cp config.json ./bin
 else 

@@ -49,6 +49,24 @@ void StorageCore::FinalizeRecipe(FileRecipeHead_t* recipeHead,
 }
 
 /**
+ * @brief finalize the file upRecipe
+ * 
+ * @param recipeHead the recipe header
+ * @param fileRecipeHandler the recipe file handler
+ */
+void StorageCore::FinalizeUpRecipe(FileRecipeHead_t* recipeHead, 
+    ofstream& fileRecipeHandler) {
+    if (!fileRecipeHandler.is_open()) {
+        tool::Logging(myName_.c_str(), "recipe file does not open.\n");
+        exit(EXIT_FAILURE);
+    }
+    fileRecipeHandler.seekp(0, ios_base::beg);
+    fileRecipeHandler.write((const char*)recipeHead, sizeof(FileRecipeHead_t));
+    fileRecipeHandler.close();   
+    return ; 
+}
+
+/**
  * @brief update the file recipe to the disk
  * 
  * @param recipeBuffer the pointer to the recipe buffer

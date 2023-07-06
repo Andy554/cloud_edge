@@ -20,12 +20,13 @@
  * @param recipePath the file recipe path
  */
 ClientVar::ClientVar(uint32_t clientID, SSL* clientSSL, 
-    int optType, string& recipePath) {
+    int optType, string& recipePath, string& upRecipePath) {
     // basic info
     _clientID = clientID;
     _clientSSL = clientSSL;
     optType_ = optType;
     recipePath_ = recipePath;
+    upRecipePath_ = upRecipePath;
     myName_ = myName_ + "-" + to_string(_clientID);
 
     // config
@@ -98,9 +99,14 @@ void ClientVar::InitUploadBuffer() {
         CHUNK_HASH_SIZE);
     _outRecipe.recipeNum = 0;
 
+    _outUpRecipe.entryList = (uint8_t*) malloc(sendRecipeBatchSize_ * 
+        CHUNK_HASH_SIZE);
+    _outUpRecipe.recipeNum = 0;
+
     // build the param passed to the enclave
     _upOutSGX.curContainer = &_curContainer;
     _upOutSGX.outRecipe = &_outRecipe;
+    _upOutSGX.outUpRecipe = &_outUpRecipe;
     _upOutSGX.outQuery = &_outQuery;
     _upOutSGX.outClient = this;
 
@@ -115,6 +121,15 @@ void ClientVar::InitUploadBuffer() {
     uint8_t isInEdge = IN_EDGE;
     _recipeWriteHandler.write((char*)&virtualRecipeEnd, sizeof(FileRecipeHead_t));
     _recipeWriteHandler.write((char*)&isInEdge, sizeof(uint8_t));
+
+    // init the file upRecipe
+    _upRecipeWriteHandler.open(upRecipePath_, ios_base::trunc | ios_base::binary);
+    if (!_upRecipeWriteHandler.is_open()) {
+        tool::Logging(myName_.c_str(), "cannot init upRecipe file: %s\n",
+            recipePath_.c_str());
+        exit(EXIT_FAILURE);
+    }
+    _recipeWriteHandler.write((char*)&virtualRecipeEnd, sizeof(FileRecipeHead_t));
 
     return ;
 }
