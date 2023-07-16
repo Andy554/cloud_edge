@@ -1,0 +1,11 @@
+Prototype/build/
+Prototype/dependent-package/
+Prototype/.vscode/
+Prototype/bin/
+Prototype/lib/
+Prototype/test*
+Prototype/ThirdPartyLib/
+Prototype/report
+Prototype/report/
+Prototype/log
+.history
