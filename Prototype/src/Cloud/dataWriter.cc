@@ -98,7 +98,6 @@ void DataWriter::SaveToFile(Container_t& newContainer) {
     }
     fwrite((char*)newContainer.body, newContainer.currentSize, 1,
         containerFile);
-
     fclose(containerFile);
     return ;
 }

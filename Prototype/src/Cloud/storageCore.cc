@@ -44,25 +44,8 @@ void StorageCore::FinalizeRecipe(FileRecipeHead_t* recipeHead,
     }
     fileRecipeHandler.seekp(0, ios_base::beg);
     fileRecipeHandler.write((const char*)recipeHead, sizeof(FileRecipeHead_t));
-    fileRecipeHandler.close();   
-    return ; 
-}
 
-/**
- * @brief finalize the file upRecipe
- * 
- * @param recipeHead the recipe header
- * @param fileRecipeHandler the recipe file handler
- */
-void StorageCore::FinalizeUpRecipe(FileRecipeHead_t* recipeHead, 
-    ofstream& fileRecipeHandler) {
-    if (!fileRecipeHandler.is_open()) {
-        tool::Logging(myName_.c_str(), "recipe file does not open.\n");
-        exit(EXIT_FAILURE);
-    }
-    fileRecipeHandler.seekp(0, ios_base::beg);
-    fileRecipeHandler.write((const char*)recipeHead, sizeof(FileRecipeHead_t));
-    fileRecipeHandler.close();   
+    fileRecipeHandler.close();    
     return ; 
 }
 
@@ -80,25 +63,6 @@ void StorageCore::UpdateRecipeToFile(const uint8_t* recipeBuffer, size_t recipeE
         exit(EXIT_FAILURE);
     }
     size_t recipeBufferSize = recipeEntryNum * sizeof(RecipeEntry_t);
-    fileRecipeHandler.write((char*)recipeBuffer, recipeBufferSize);
-    return ;
-}
-
-/**
-* @brief update the file recipe to the disk (with MLE key version)
-* 
-* @param recipeBuffer the pointer to the recipe buffer
-* @param recipeEntryNum the number of recipe entries
-* @param fileRecipeHandler the recipe file handler
-*/
-void StorageCore::UpdateRecipeToFileWithMLEKey(const uint8_t* recipeBuffer, size_t recipeEntryNum, 
-    ofstream& fileRecipeHandler) {
-    if (!fileRecipeHandler.is_open()) {
-        tool::Logging(myName_.c_str(), "recipe file does not open.\n");
-        exit(EXIT_FAILURE);
-    }
-    tool::Logging(myName_.c_str(), "write %lu recipes\n", recipeEntryNum);
-    size_t recipeBufferSize = recipeEntryNum * CHUNK_HASH_SIZE;
     fileRecipeHandler.write((char*)recipeBuffer, recipeBufferSize);
     return ;
 }

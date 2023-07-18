@@ -105,7 +105,7 @@ typedef struct {
     double compTime;
     double encTime;
 #endif
-} EnclaveInfo_t;
+} EnclaveInfo_t, CloudInfo_t;
 
 typedef struct {
     int messageType;

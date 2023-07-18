@@ -33,8 +33,6 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
     absIndexObj_->SetStorageCoreObj(storageCoreObj_);
     dataReceiverObj_ = new DataReceiver(absIndexObj_, dataSecureChannel_, eidSGX_);
     dataReceiverObj_->SetStorageCoreObj(storageCoreObj_);
-    //uploaderObj_ = new Uploader();
-
 
     // init the restore
     recvDecoderObj_ = new EnclaveRecvDecoder(dataSecureChannel_, 
@@ -51,10 +49,10 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
     if (!tool::FileExist(logFileName_)) {
         // if the log file not exist, add the header
         logFile_.open(logFileName_, ios_base::out);
-        logFile_ << "indeduptime  " << "outdeduptime  "
-            << "sftime  " << "indelta  "
-            << "outdelta  " << "conI_Otime  "
-            << "conupdate  " << "process  " << "deltaprocess  " << "uniqueprocess  " << "backup_unique  " << "backup_delta  " << "backup_indelta  " << "backup_outdelta  " << "backup_delay_pop  " << "backup_delay_push  " <<"backup_total  "<<"backup_encalve_total  "  << endl;
+        logFile_ << "logical data size (B), " << "logical chunk num, "
+            << "unique data size (B), " << "unique chunk num, "
+            << "compressed data size (B), " << "total process time (s), "
+            << "enclave speed (MiB/s)" << endl;
     } else {
         // the log file exists
         logFile_.open(logFileName_, ios_base::app | ios_base::out);
@@ -85,7 +83,7 @@ CloudOptThread::~CloudOptThread() {
     Ecall_Destroy_Upload(eidSGX_);
     logFile_.close();
 
-    fprintf(stderr, "========CloudOptThread Info========\n");
+    fprintf(stderr, "=========CloudOptThread Info========\n");
     fprintf(stderr, "total recv upload requests: %lu\n", totalUploadReqNum_);
     fprintf(stderr, "total recv download requests: %lu\n", totalRestoreReqNum_);
     fprintf(stderr, "====================================\n");
@@ -94,18 +92,18 @@ CloudOptThread::~CloudOptThread() {
 /**
  * @brief the main process
  * 
- * @param clientSSL the client ssl
+ * @param edgeSSL the client ssl
  */
-void CloudOptThread::Run(SSL* clientSSL) {
+void CloudOptThread::Run(SSL* edgeSSL) {
     boost::thread* thTmp;
     boost::thread_attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
     vector<boost::thread*> thList;
-    EnclaveInfo_t enclaveInfo;
+    CloudInfo_t cloudInfo;
 
     SendMsgBuffer_t recvBuf;
     recvBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
-        CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t)); //why?
+        CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t)); // 文件名哈希值 + 存储*fp的FileRecipe
     recvBuf.header = (NetworkHead_t*) recvBuf.sendBuffer;
     recvBuf.header->dataSize = 0;
     recvBuf.dataBuffer = recvBuf.sendBuffer + sizeof(NetworkHead_t);
@@ -113,68 +111,11 @@ void CloudOptThread::Run(SSL* clientSSL) {
 
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
 
-#if (ENABLE_SGX_RA == 1)
-    // check whether do remote attestation
-    if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, recvSize)) {
-        tool::Logging(myName_.c_str(), "recv RA decision fails.\n");
-        exit(EXIT_FAILURE);
-    }
-    sgx_ra_context_t raCtx;
-    switch (recvBuf.header->messageType) {
-        case SGX_RA_NEED: {
-            raUtil_->DoAttestation(eidSGX_, raCtx, clientSSL);
-            if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, recvSize)) {
-                tool::Logging(myName_.c_str(), "client closed socket connect, RA finish.\n");
-                dataSecureChannel_->ClearAcceptedClientSd(clientSSL);
-            }
-            free(recvBuf.sendBuffer);
-            return ;
-        }
-        case SGX_RA_NOT_NEED: {
-            break;
-        }
-        default: {
-            tool::Logging(myName_.c_str(), "wrong RA request type.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
+    // 不需要RA、Session Key的交互
 
-#else
-    // wait the RA request
-    if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, recvSize)) {
-        tool::Logging(myName_.c_str(), "recv the RA request header fails.\n");
-        exit(EXIT_FAILURE);
-    } 
-    switch (recvBuf.header->messageType) {
-        case SGX_RA_NOT_SUPPORT: {
-            // cannot perform RA
-            if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, 
-                recvSize)) {
-                tool::Logging(myName_.c_str(), "client closed socket connect, RA not support.\n");
-                dataSecureChannel_->ClearAcceptedClientSd(clientSSL);
-            }
-            free(recvBuf.sendBuffer);
-            return;
-        }
-        case SGX_RA_NOT_NEED: {
-            // does not need to perform RA
-            break;   
-        }
-        default: {
-            tool::Logging(myName_.c_str(), "wrong RA request type.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-#endif
-
-    // generate the session key
-    if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, 
+    if (!dataSecureChannel_->ReceiveData(edgeSSL, recvBuf.sendBuffer, 
         recvSize)) {
-        tool::Logging(myName_.c_str(), "recv the session key request error.\n");
-        exit(EXIT_FAILURE);
-    }
-    if (recvBuf.header->messageType != SESSION_KEY_INIT) { 
-        tool::Logging(myName_.c_str(), "recv the wrong session key init type.\n");
+        tool::Logging(myName_.c_str(), "recv the edge upload login request error.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -196,26 +137,6 @@ void CloudOptThread::Run(SSL* clientSSL) {
         }
     }
 
-    struct timeval sTime;
-    struct timeval eTime;
-    double keyExchangeTime = 0;
-    gettimeofday(&sTime, NULL);
-    Ecall_Session_Key_Exchange(eidSGX_, recvBuf.dataBuffer, clientID);
-    gettimeofday(&eTime, NULL);
-    keyExchangeTime = tool::GetTimeDiff(sTime, eTime);
-
-    recvBuf.header->messageType = SESSION_KEY_REPLY;
-    if (!dataSecureChannel_->SendData(clientSSL, recvBuf.sendBuffer,
-        sizeof(NetworkHead_t) + SESSION_KEY_BUFFER_SIZE)) {
-        tool::Logging(myName_.c_str(), "send the session key fails.\n");
-        exit(EXIT_FAILURE);
-    }
-    if (!dataSecureChannel_->ReceiveData(clientSSL, recvBuf.sendBuffer, 
-        recvSize)) {
-        tool::Logging(myName_.c_str(), "recv the login message error.\n");
-        exit(EXIT_FAILURE);
-    }
-
     // ---- the main process ----
     int optType = 0;
     switch (recvBuf.header->messageType) {
@@ -228,7 +149,7 @@ void CloudOptThread::Run(SSL* clientSSL) {
             break;
         }
         default: {
-            tool::Logging(myName_.c_str(), "wrong client login type.\n");
+            tool::Logging(myName_.c_str(), "wrong edge login type.\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -241,25 +162,23 @@ void CloudOptThread::Run(SSL* clientSSL) {
     }
     string fileName;
     fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
-    string recipePath = config.GetRecipeRootPath() +
-        fileName + config.GetRecipeSuffix();
     string upRecipePath = config.GetUpRecipeRootPath() +
         fileName + config.GetRecipeSuffix();
     if (!this->CheckFileStatus(recipePath, optType)) {
-        recvBuf.header->messageType = SERVER_FILE_NON_EXIST;
-        if (!dataSecureChannel_->SendData(clientSSL, recvBuf.sendBuffer,
+        recvBuf.header->messageType = CLOUD_FILE_NON_EXIST;
+        if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer,
             sizeof(NetworkHead_t))) {
             tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
             exit(EXIT_FAILURE);
         }
-
-        // wait the client to close the connection
-        if (!dataSecureChannel_->ReceiveData(clientSSL, 
+        
+        // wait the edge to close the connection
+        if (!dataSecureChannel_->ReceiveData(edgeSSL, 
             recvBuf.sendBuffer, recvSize)) {
-            tool::Logging(myName_.c_str(), "client close the socket connection.\n");
-            dataSecureChannel_->ClearAcceptedClientSd(clientSSL);
+            tool::Logging(myName_.c_str(), "edge close the socket connection.\n");
+            dataSecureChannel_->ClearAcceptedClientSd(edgeSSL);
         } else {
-            tool::Logging(myName_.c_str(), "client does not close the connection.\n");
+            tool::Logging(myName_.c_str(), "edge does not close the connection.\n");
             exit(EXIT_FAILURE);
         }
 
@@ -278,24 +197,24 @@ void CloudOptThread::Run(SSL* clientSSL) {
         case UPLOAD_OPT: {
             // update the req number
             totalUploadReqNum_++;
-            tool::Logging(myName_.c_str(), "recv the upload request from client: %u\n",
+            tool::Logging(myName_.c_str(), "recv the upload request from edge: %u\n",
                 clientID);
-            outClient = new ClientVar(clientID, clientSSL, UPLOAD_OPT, recipePath, upRecipePath);
+            outClient = new ClientVar(clientID, edgeSSL, UPLOAD_OPT, recipePath);
             Ecall_Init_Client(eidSGX_, clientID, indexType_, UPLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
                 &outClient->_upOutSGX.sgxClient);
 
             thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
-                outClient, &enclaveInfo));
+                outClient, &cloudInfo));
             thList.push_back(thTmp); 
 #if (MULTI_CLIENT == 0)
             thTmp = new boost::thread(attrs, boost::bind(&DataWriter::Run, dataWriterObj_,
                 outClient->_inputMQ));
             thList.push_back(thTmp);
 #endif
-            // send the upload-response to the client
-            recvBuf.header->messageType = SERVER_LOGIN_RESPONSE;
-            if (!dataSecureChannel_->SendData(clientSSL, recvBuf.sendBuffer, 
+            // send the upload-response to the cloud
+            recvBuf.header->messageType = CLOUD_LOGIN_RESPONSE;
+            if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer, 
                 sizeof(NetworkHead_t))) {
                 tool::Logging(myName_.c_str(), "send the upload-login response error.\n");
                 exit(EXIT_FAILURE);
@@ -307,35 +226,20 @@ void CloudOptThread::Run(SSL* clientSSL) {
             totalRestoreReqNum_++;
             tool::Logging(myName_.c_str(), "recv the restore request from client: %u\n",
                 clientID);
-            outClient = new ClientVar(clientID, clientSSL, DOWNLOAD_OPT, recipePath, upRecipePath);
+            outClient = new ClientVar(clientID, edgeSSL, DOWNLOAD_OPT, recipePath);
             Ecall_Init_Client(eidSGX_, clientID, indexType_, DOWNLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE,
                 &outClient->_resOutSGX.sgxClient);
 
-            // 修改了以下两行代码的顺序，本来在thtmp后面
+            thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
+                outClient));
+            thList.push_back(thTmp);
+
             // send the restore-response to the client (include the file recipe header)
             recvBuf.header->messageType = SERVER_LOGIN_RESPONSE;
             outClient->_recipeReadHandler.read((char*)recvBuf.dataBuffer,
                 sizeof(FileRecipeHead_t));
-            
-            // 检查文件的位置
-            char *tmpIsInEdge = (char*)malloc(sizeof(char));
-            outClient->_recipeReadHandler.read((char*)tmpIsInEdge,
-                sizeof(char));
-                
-            if(tmpIsInEdge[0] == IN_EDGE) {
-                tool::Logging(myName_.c_str(), "file is in edge.\n", tmpIsInEdge);
-
-                thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
-                    outClient));
-                thList.push_back(thTmp);
-            }
-            else {
-                tool::Logging(myName_.c_str(), "file is in cloud.\n", tmpIsInEdge);
-                //
-            }
-            
-            if (!dataSecureChannel_->SendData(clientSSL, recvBuf.sendBuffer, 
+            if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer, 
                 sizeof(NetworkHead_t) + sizeof(FileRecipeHead_t))) {
                 tool::Logging(myName_.c_str(), "send the restore-login response error.\n");
                 exit(EXIT_FAILURE);
@@ -356,39 +260,7 @@ void CloudOptThread::Run(SSL* clientSSL) {
     }
     gettimeofday(&eTime, NULL);
     totalTime += tool::GetTimeDiff(sTime, eTime);
-    /*
-    if(){
-        uint32_t edgeID = config.GetClientID();
-        
-        SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageCloudIP(), 
-        config.GetStoragePort(), IN_CLIENTSIDE);
-        pair<int, SSL*> cloudConnectionRecord = dataSecureChannel->ConnectSSL();
-        SSL* cloudConnection = cloudConnectionRecord.second;
-        
-        SessionKeyExchange* sessionKeyObj = new SessionKeyExchange(dataSecureChannel);
-        uint8_t sessionKey[CHUNK_HASH_SIZE] = {0};
-        sessionKeyObj->GeneratingSecret(sessionKey, cloudConnection, edgeID);
-        
-        uploaderObj_ = new Uploader(dataSecureChannel);
-        uploaderObj_->SetConnectionRecord(cloudConnectionRecord);
-        uploaderObj_->SetSessionKey(sessionKey, CHUNK_HASH_SIZE);
-        
-        string updateFile;
-        //TODO：启动一个线程选择上传文件，计算上传指纹
     
-        string fullName = updateFile + to_string(edgeID);
-        uint8_t fileNameHash[CHUNK_HASH_SIZE] = {0};
-        cryptoObj->GenerateHash(mdCtx, (uint8_t*)&fullName[0],
-            fullName.size(), fileNameHash);
-
-        MessageQueue<Data_t>* chunker2SenderMQ = new MessageQueue<Data_t>(CHUNK_QUEUE_SIZE);
-        uploaderObj_->SetInputMQ(chunker2SenderMQ);
-        uploaderObj_->UploadLogin(config.GetLocalSecret(),fileNameHash);
-        
-        thTmp = new boost::thread(attrs, boost::bind(&Uploader::Run, uploaderObj_));
-        thList.push_back(thTmp); 
-    }
-    */
     // clean up
     for (auto it : thList) {
         delete it;
@@ -396,6 +268,7 @@ void CloudOptThread::Run(SSL* clientSSL) {
     thList.clear();
     
     // clean up client variables 
+    // TODO: 对象的销毁
     switch (optType) {
         case UPLOAD_OPT: {
             Ecall_Destroy_Client(eidSGX_, outClient->_upOutSGX.sgxClient);
@@ -413,47 +286,19 @@ void CloudOptThread::Run(SSL* clientSSL) {
 
     // print the info
     double speed = static_cast<double>(outClient->_uploadDataSize) / 1024.0 / 1024.0 
-        / enclaveInfo.enclaveProcessTime;
-    if (optType == UPLOAD_OPT) {
-         logFile_ << enclaveInfo.indeduptime << ", " 
-            << enclaveInfo.outdeduptime << ", "
-            << enclaveInfo.sftime << ", " 
-            << enclaveInfo.indeltatime << ", "
-            << enclaveInfo.outdeltatime << ", " 
-            << enclaveInfo.conI_Otime << ", "
-            << enclaveInfo.conupdatetime << ", "
-            << enclaveInfo.processtime << ", "
-            << enclaveInfo.deltaprocesstime << ", "
-            << enclaveInfo.uniqueprocesstime << ", "
-            << enclaveInfo.backup_unique << ", "
-            << enclaveInfo.backup_delta << ", "
-            << enclaveInfo.backup_indelta << ", "
-            << enclaveInfo.backup_outdelta << ", "
-            << enclaveInfo.backup_delay_pop << ", "
-            << enclaveInfo.backup_delay_push << ", "
-            << enclaveInfo.backup_total << ", "
-            << enclaveInfo.backup_enclave_total << ", "<<endl;
+        / cloudInfo.enclaveProcessTime;
+    //TODO: 处理情况的输出
+    if (optType == UPLOAD_OPT) { 
+        logFile_ << cloudInfo.logicalDataSize << ", " 
+            << cloudInfo.logicalChunkNum << ", "
+            << cloudInfo.uniqueDataSize << ", " 
+            << cloudInfo.uniqueChunkNum << ", "
+            << cloudInfo.compressedSize << ", " 
+            << to_string(cloudInfo.enclaveProcessTime) << ", "
+            << to_string(speed) << endl;
         logFile_.flush();
-
-#if (SGX_BREAKDOWN == 1)
-        double dataMB = static_cast<double>(outClient->_uploadDataSize) / 1024.0 / 1024.0;
-        tool::Logging(myName_.c_str(), "data tran time: %lf\n", 
-            (enclaveInfo.dataTranTime + keyExchangeTime * 1000.0) / dataMB);
-        tool::Logging(myName_.c_str(), "fingerprint time: %lf\n",
-            enclaveInfo.fpTime / dataMB);
-        tool::Logging(myName_.c_str(), "freq counting time: %lf\n",
-            enclaveInfo.freqTime / dataMB);
-        tool::Logging(myName_.c_str(), "first-dedup time: %lf\n",
-            enclaveInfo.firstDedupTime / dataMB);
-        tool::Logging(myName_.c_str(), "second-dedup time: %lf\n",
-            enclaveInfo.secondDedupTime / dataMB);
-        tool::Logging(myName_.c_str(), "compression time: %lf\n",
-            enclaveInfo.compTime / dataMB);
-        tool::Logging(myName_.c_str(), "encryption time: %lf\n",
-            enclaveInfo.encTime / dataMB);
-#endif
     }
-    delete outClient;
+    delete outClient; //TODO: 对象的销毁
     free(recvBuf.sendBuffer);
     tmpLock->unlock();
 

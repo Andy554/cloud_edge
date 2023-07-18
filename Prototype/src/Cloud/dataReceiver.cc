@@ -69,22 +69,18 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
             gettimeofday(&sProcTime, NULL);
             switch (recvChunkBuf->header->messageType) {
                 case CLIENT_UPLOAD_CHUNK: {
-                    tool::Logging(myName_.c_str(), "start to process one batch...\n");
                     absIndexObj_->ProcessOneBatch(recvChunkBuf, upOutSGX); 
                     batchNum_++;
                     break;
                 }
                 case CLIENT_UPLOAD_RECIPE_END: {
-                    tool::Logging(myName_.c_str(), "start to process tail batch...====================\n");
                     // this is the end of one upload 
                     absIndexObj_->ProcessTailBatch(upOutSGX);
                     // finalize the file recipe
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
                         outClient->_recipeWriteHandler);
-                    storageCoreObj_->FinalizeUpRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
-                        outClient->_upRecipeWriteHandler);
                     recipeEndNum_++;
-                    tool::Logging(myName_.c_str(), "finish process tail batch...====================\n");
+
                     // update the upload data size
                     FileRecipeHead_t* tmpRecipeHead = (FileRecipeHead_t*)recvChunkBuf->dataBuffer;
                     outClient->_uploadDataSize = tmpRecipeHead->fileSize;
@@ -103,9 +99,7 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
 
     // process the last container 
     if (curContainer->currentSize != 0) {
-        tool::Logging(myName_.c_str(), "start to write last container\n"); 
         Ocall_WriteContainer(outClient);
-        tool::Logging(myName_.c_str(), "write last container success\n"); 
     }
     outClient->_inputMQ->done_ = true;
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
@@ -113,6 +107,5 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
 
     enclaveInfo->enclaveProcessTime = totalProcessTime;
     Ecall_GetEnclaveInfo(eidSGX_, enclaveInfo);
-    tool::Logging(myName_.c_str(), "---------update file end---------\n"); 
     return ;
 }
