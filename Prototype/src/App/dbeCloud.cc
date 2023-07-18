@@ -10,7 +10,7 @@
  */
 // for basic build block
 #include "../../include/configure.h"
-#include "../../include/clientVar.h"
+#include "../../include/edgeVar.h"
 #include "../../include/factoryDatabase.h"
 #include "../../include/absDatabase.h"
 
@@ -22,17 +22,17 @@
 #include <boost/thread/thread.hpp>
 
 // for SGX related
-#include "sgx_urts.h"
-#include "sgx_capable.h"
-#include "../src/Enclave/include/storeOCall.h"
+// #include "sgx_urts.h"
+// #include "sgx_capable.h"
+// #include "../src/Enclave/include/storeOCall.h"
 
 using namespace std;
 
 // the variable to record the enclave information
-sgx_enclave_id_t eidSGX;
-sgx_launch_token_t tokenSGX = {0};
-sgx_status_t statusSGX;
-int updateSGX;
+// sgx_enclave_id_t eidSGX;
+// sgx_launch_token_t tokenSGX = {0};
+// sgx_status_t statusSGX;
+// int updateSGX;
 
 Configure config("config-cloud.json");
 string myName = "DEBECloud";
@@ -70,7 +70,7 @@ void CTRLC(int s) {
     tool::Logging(myName.c_str(), "clear all cloud thread the object.\n");
 
     // destroy the sgx here
-    Ecall_Enclave_Destroy(eidSGX); 
+    // Ecall_Enclave_Destroy(eidSGX); 
 
     delete fp2ChunkDB;
     delete dataSecurityChannelObj;
@@ -125,38 +125,39 @@ int main(int argc, char* argv[]) {
     
     fp2ChunkDB = dbFactory.CreateDatabase(LEVEL_DB, config.GetFp2ChunkDBName()); // 创建数据库实例 // key-value store
     dataSecurityChannelObj = new SSLConnection(config.GetStorageCloudIP(), 
-        config.GetStorageCloudPort(), IN_CLOUDSIDE);
+        config.GetStorageCloudPort(), IN_SERVERSIDE); // 本来想 IN_CLOUDSIDE，但是这里对于 SSL 来说，不必区分 edge/cloud，都是作为 server
 
     // check whether enable SGX
-#if (CHECK_SGX_HW == 1)
-    updateSGX = 0;
-    sgx_is_capable(&updateSGX);
-    if (updateSGX != 1) {
-        tool::Logging(myName.c_str(), "SGX is disabled on this PC.\n");
-        exit(EXIT_FAILURE);
-    } else {
-        tool::Logging(myName.c_str(), "SGX is enable.\n");
-    }
-#endif
-    statusSGX = sgx_create_enclave(ENCLAVE_PATH, SGX_DEBUG_FLAG, &tokenSGX,
-        &updateSGX, &eidSGX, NULL);
-    if (statusSGX != SGX_SUCCESS) {
-        tool::Logging(myName.c_str(), "fail to create the enclave.\n");
-        exit(EXIT_FAILURE);
-    } else {
-        tool::Logging(myName.c_str(), "create the enclave successfully.\n");
-    }
+// #if (CHECK_SGX_HW == 1)
+//     updateSGX = 0;
+//     sgx_is_capable(&updateSGX);
+//     if (updateSGX != 1) {
+//         tool::Logging(myName.c_str(), "SGX is disabled on this PC.\n");
+//         exit(EXIT_FAILURE);
+//     } else {
+//         tool::Logging(myName.c_str(), "SGX is enable.\n");
+//     }
+// #endif
+//     statusSGX = sgx_create_enclave(ENCLAVE_PATH, SGX_DEBUG_FLAG, &tokenSGX,
+//         &updateSGX, &eidSGX, NULL);
+//     if (statusSGX != SGX_SUCCESS) {
+//         tool::Logging(myName.c_str(), "fail to create the enclave.\n");
+//         exit(EXIT_FAILURE);
+//     } else {
+//         tool::Logging(myName.c_str(), "create the enclave successfully.\n");
+//     }
 
+    //? 这些 config 不放在 enclave 又该放在哪里？
     // config the enclave
-    EnclaveConfig_t enclaveConfig;
-    enclaveConfig.sendChunkBatchSize = config.GetSendChunkBatchSize();
-    enclaveConfig.sendRecipeBatchSize = config.GetSendRecipeBatchSize();
-    enclaveConfig.topKParam = config.GetTopKParam();
-    Ecall_Enclave_Init(eidSGX, &enclaveConfig);
+    // EnclaveConfig_t enclaveConfig;
+    // enclaveConfig.sendChunkBatchSize = config.GetSendChunkBatchSize();
+    // enclaveConfig.sendRecipeBatchSize = config.GetSendRecipeBatchSize();
+    // enclaveConfig.topKParam = config.GetTopKParam();
+    // Ecall_Enclave_Init(eidSGX, &enclaveConfig);
 
     // init 
-    cloudThreadObj = new CloudOptThread(dataSecurityChannelObj, fp2ChunkDB,
-        eidSGX, indexType);
+    cloudThreadObj = new CloudOptThread(dataSecurityChannelObj, fp2ChunkDB/*,
+        eidSGX, indexType*/);
 
     /**
      * |---------------------------------------|
@@ -165,10 +166,10 @@ int main(int argc, char* argv[]) {
      */
 
     while (true) {
-        tool::Logging(myName.c_str(), "waiting the request from the client.\n");
-        SSL* clientSSL = dataSecurityChannelObj->ListenSSL().second;
+        tool::Logging(myName.c_str(), "waiting the request from the edge.\n");
+        SSL* edgeSSL = dataSecurityChannelObj->ListenSSL().second;
         thTmp = new boost::thread(attrs, boost::bind(&CloudOptThread::Run, cloudThreadObj,
-            clientSSL));
+            edgeSSL));
         thList.push_back(thTmp);
     }
 
