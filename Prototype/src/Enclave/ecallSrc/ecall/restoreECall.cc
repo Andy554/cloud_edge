@@ -54,6 +54,13 @@ void Ecall_ProcRecipeBatch(uint8_t* recipeBuffer, size_t recipeNum,
     return ;
 }
 
+void Ecall_ProcRecipeBatchForEdgeUpload(uint8_t* recipeBuffer, size_t recipeNum,
+    ResOutSGX_t* resOutSGX, bool* isInCloud) {
+    ecallRecvDecoderObj_->ProcRecipeBatchForEdgeUpload(recipeBuffer, recipeNum, 
+        resOutSGX, isInCloud);
+    return ;
+}
+
 /**
  * @brief decode the tail recipe inside the enclave
  * 
@@ -61,5 +68,10 @@ void Ecall_ProcRecipeBatch(uint8_t* recipeBuffer, size_t recipeNum,
  */
 void Ecall_ProcRecipeTailBatch(ResOutSGX_t* resOutSGX) {
     ecallRecvDecoderObj_->ProcRecipeTailBatch(resOutSGX);
+    return ;
+}
+
+void Ecall_ProcRecipeTailBatchForEdgeUpload(ResOutSGX_t* resOutSGX) {
+    ecallRecvDecoderObj_->ProcRecipeTailBatchForEdgeUpload(resOutSGX);
     return ;
 }

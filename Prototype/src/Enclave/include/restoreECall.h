@@ -50,11 +50,16 @@ void Ecall_Destroy_Restore();
 void Ecall_ProcRecipeBatch(uint8_t* recipeBuffer, size_t recipeNum,
     ResOutSGX_t* resOutSGX);
 
+void Ecall_ProcRecipeBatchForEdgeUpload(uint8_t* recipeBuffer, size_t recipeNum,
+    ResOutSGX_t* resOutSGX, bool* isInCloud);
+
 /**
  * @brief decode the tail recipe inside the enclave
  * 
  * @param resOutSGX the pointer to the out-enclave var
  */
 void Ecall_ProcRecipeTailBatch(ResOutSGX_t* resOutSGX);
+
+void Ecall_ProcRecipeTailBatchForEdgeUpload(ResOutSGX_t* resOutSGX);
 
 #endif

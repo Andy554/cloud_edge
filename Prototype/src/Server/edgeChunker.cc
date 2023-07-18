@@ -58,7 +58,7 @@ void EdgeChunker::Run(ClientVar* outClient) {
         offset += recipeEntryNum;
     }
 
-    Ecall_ProcRecipeTailBatchForEdegeUpload(eidSGX_, resOutSGX);
+    Ecall_ProcRecipeTailBatchForEdgeUpload(eidSGX_, resOutSGX);
     
     gettimeofday(&eProcTime, NULL);
     totalProcTime += tool::GetTimeDiff(sProcTime, eProcTime);

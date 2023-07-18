@@ -26,7 +26,7 @@ class EdgeChunker : public AbsRecvDecoder {
          * @param eidSGX the id to the enclave
          */
         EdgeChunker(SSLConnection* dataSecureChannel, 
-            sgx_enclave_id_t eidSGX);
+            sgx_enclave_id_t eidSGX, bool* _isInCloud);
 
         /**
          * @brief Destroy the Enclave Recv Decoder object
