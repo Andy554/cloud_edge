@@ -14,6 +14,7 @@
 
 #include "configure.h"
 #include "clientVar.h"
+#include "edgeVar.h"
 #include "sslConnection.h"
 #include "absIndex.h"
 #include "../build/src/Enclave/storeEnclave_u.h"
@@ -36,6 +37,15 @@ class DataReceiver {
         StorageCore* storageCoreObj_;
 
     public:
+        #ifdef CLOUD_COMPILE
+        /**
+         * @brief Construct a new DataReceiver object
+         * 
+         * @param absIndexObj the pointer to the index obj
+         * @param dataSecurity the pointer to the security channel
+         */
+        DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel);
+        #else
         /**
          * @brief Construct a new DataReceiver object
          * 
@@ -44,14 +54,7 @@ class DataReceiver {
          * @param eidSGX the sgx id
          */
         DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel, sgx_enclave_id_t eidSGX);
-
-        /**
-         * @brief Construct a new DataReceiver object
-         * 
-         * @param absIndexObj the pointer to the index obj
-         * @param dataSecurity the pointer to the security channel
-         */
-        DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel);
+        #endif
 
         /**
          * @brief Destroy the DataReceiver object
@@ -59,6 +62,15 @@ class DataReceiver {
          */
         ~DataReceiver();
 
+        #ifdef CLOUD_COMPILE
+        /**
+         * @brief the main process to handle new edge upload-request connection
+         * 
+         * @param outEdge the edge ptr
+         * @param cloudInfo the pointer to the cloud info 
+         */
+        void Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo);
+        #else
         /**
          * @brief the main process to handle new client upload-request connection
          * 
@@ -66,7 +78,8 @@ class DataReceiver {
          * @param enclaveInfo the pointer to the enclave info 
          */
         void Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo);
-        
+        #endif
+
         /**
          * @brief Set the Storage Core Obj object
          * 

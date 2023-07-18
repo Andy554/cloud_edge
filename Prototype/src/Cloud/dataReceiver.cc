@@ -11,21 +11,6 @@
 
 #include "../../include/dataReceiver.h"
 
-/**
- * @brief Construct a new DataReceiver object
- * 
- * @param absIndexObj the pointer to the index obj
- * @param dataSecurity the pointer to the security channel
- * @param eidSGX the sgx id
- */
-DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel, 
-    sgx_enclave_id_t eidSGX) {
-    // set up the connection and interface
-    dataSecureChannel_ = dataSecureChannel;
-    absIndexObj_ = absIndexObj;
-    eidSGX_ = eidSGX;
-    tool::Logging(myName_.c_str(), "init the DataReceiver.\n");
-}
 
 /**
  * @brief Construct a new DataReceiver object
@@ -55,10 +40,10 @@ DataReceiver::~DataReceiver() {
 /**
  * @brief the main process to handle new edge upload-request connection
  * 
- * @param outEdge the out-enclave edge ptr
- * @param cloudinfo the pointer to the enclave info
+ * @param outEdge the edge ptr
+ * @param cloudinfo the pointer to the cloud info
  */
-void DataReceiver::Run(EdgeVar* outEdge, EnclaveInfo_t* cloudinfo) {
+void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     uint32_t recvSize = 0;
     string edgeIP;
     UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX;

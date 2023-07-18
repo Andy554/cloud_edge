@@ -29,7 +29,7 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
     // init the upload
     dataWriterObj_ = new DataWriter();
     storageCoreObj_ = new StorageCore();
-    absIndexObj_ = new EnclaveIndex(fp2ChunkDB_, indexType_, eidSGX_);
+    absIndexObj_ = new CloudIndex(fp2ChunkDB_);
     absIndexObj_->SetStorageCoreObj(storageCoreObj_);
     dataReceiverObj_ = new DataReceiver(absIndexObj_, dataSecureChannel_);
     dataReceiverObj_->SetStorageCoreObj(storageCoreObj_);
