@@ -29,7 +29,6 @@ typedef struct {
     union {
         Chunk_t chunk;
         FileRecipeHead_t recipeHead;
-        uint8_t chunkHash[CHUNK_HASH_SIZE];
     };
     int dataType;
 } Data_t;

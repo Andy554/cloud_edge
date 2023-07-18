@@ -25,14 +25,6 @@ Uploader::Uploader(SSLConnection* dataSecureChannel){
     sendFpBuf_.header->dataSize = 0;
     sendFpBuf_.dataBuffer = sendFpBuf_.sendBuffer + sizeof(NetworkHead_t);
 
-    sendEncBuffer_.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) +
-        sendChunkBatchSize_ * sizeof(Chunk_t));
-    sendEncBuffer_.header = (NetworkHead_t*) sendEncBuffer_.sendBuffer;
-    sendEncBuffer_.header->clientID = edgeID_;
-    sendEncBuffer_.header->currentItemNum = 0;
-    sendEncBuffer_.header->dataSize = 0;
-    sendEncBuffer_.dataBuffer = sendEncBuffer_.sendBuffer + sizeof(NetworkHead_t);
-
     // prepare the crypto tool
     cryptoObj_ = new CryptoPrimitive(CIPHER_TYPE, HASH_TYPE);
     cipherCtx_ = EVP_CIPHER_CTX_new();
@@ -41,7 +33,6 @@ Uploader::Uploader(SSLConnection* dataSecureChannel){
 }
 
 Uploader::~Uploader() {
-    free(sendEncBuffer_.sendBuffer);
     free(sendChunkBuf_.sendBuffer);
     free(sendFpBuf_.sendBuffer);
     EVP_CIPHER_CTX_free(cipherCtx_);
@@ -53,54 +44,64 @@ Uploader::~Uploader() {
     fprintf(stderr, "===============================\n");
 }
 
-void Uploader::UploadLogin(string localSecret, uint8_t* fileNameHash) {
-    // generate the hash of the master key
-    uint8_t masterKey[CHUNK_HASH_SIZE];
-    cryptoObj_->GenerateHash(mdCtx_, (uint8_t*)&localSecret[0], localSecret.size(),
-        masterKey);
-
-    // header + fileNameHash + Enc(masterKey)
+void Uploader::UploadFileUpRecipe(uint8_t* fileNameHash) {
+    char fileHashBuf[CHUNK_HASH_SIZE * 2 + 1];
+    for (uint32_t i = 0; i < CHUNK_HASH_SIZE; i++) {
+        sprintf(fileHashBuf + i * 2, "%02x", fileNameHash[i]);
+    }
+    string fileName;
+    fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
+    string upRecipePath = config.GetUpRecipeRootPath() + fileName + config.GetRecipeSuffix();
+    recipeReadHandler.open(upRecipePath, ios_base::in | ios_base::binary);
+    if (!recipeReadHandler.is_open()) {
+        tool::Logging(myName_.c_str(), "cannot init the file recipe: %s.\n",
+            upRecipePath.c_str());
+        exit(EXIT_FAILURE);
+    }
+    //header + fileNameHash + recipeHead
     SendMsgBuffer_t msgBuf;
     msgBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
-        CHUNK_HASH_SIZE + CHUNK_HASH_SIZE);
+        CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t));
     msgBuf.header = (NetworkHead_t*) msgBuf.sendBuffer;
     msgBuf.header->clientID = edgeID_;
     msgBuf.header->dataSize = 0;
     msgBuf.dataBuffer = msgBuf.sendBuffer + sizeof(NetworkHead_t);
-    msgBuf.header->messageType = CLIENT_LOGIN_UPLOAD;
-
+    msgBuf.header->messageType = EDGE_LOGIN_UPLOAD;
     memcpy(msgBuf.dataBuffer + msgBuf.header->dataSize, fileNameHash, 
         CHUNK_HASH_SIZE);
     msgBuf.header->dataSize += CHUNK_HASH_SIZE;
-    cryptoObj_->SessionKeyEnc(cipherCtx_, masterKey, CHUNK_HASH_SIZE, 
-        sessionKey_, msgBuf.dataBuffer + CHUNK_HASH_SIZE);
-    msgBuf.header->dataSize += CHUNK_HASH_SIZE;
-
-    // send the upload login request
+    recipeReadHandler.read((char*)msgBuf.dataBuffer + msgBuf.header->dataSize,
+        sizeof(FileRecipeHead_t));
+    msgBuf.header->dataSize += sizeof(FileRecipeHead_t);
     if (!dataSecureChannel_->SendData(conChannelRecord_.second, 
         msgBuf.sendBuffer, sizeof(NetworkHead_t) + msgBuf.header->dataSize)) {
         tool::Logging(myName_.c_str(), "send the edge upload login error.\n");
         exit(EXIT_FAILURE);
     }
-
-    // wait the server to send the login response
-    uint32_t recvSize = 0;
-    if (!dataSecureChannel_->ReceiveData(conChannelRecord_.second, 
-        msgBuf.sendBuffer, recvSize)) {
-        tool::Logging(myName_.c_str(), "recv the cloud login response error.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (msgBuf.header->messageType == SERVER_LOGIN_RESPONSE) {
-        tool::Logging(myName_.c_str(), "recv the cloud login response well, "
-            "the cloud is ready to process the request.\n");
-    } else {
-        tool::Logging(myName_.c_str(), "cloud response is wrong, it is not ready.\n");
-        exit(EXIT_FAILURE);
-    }
-
     free(msgBuf.sendBuffer);
-    return ;
+
+    sendFpBuf_.header->messageType = EDGE_UPLOAD_FP;
+    sendFpBuf_.header->clientID = edgeID_;
+    bool end = false;
+    while(!end){
+        recipeReadHandler.read((char*)sendFpBuf_.dataBuffer, CHUNK_HASH_SIZE * sendRecipeBatchSize_);
+        uint32_t readCnt = recipeReadHandler.gcount();
+        if (readCnt == 0) {
+            break;
+        }
+        sendFpBuf_.header->dataSize = readCnt;
+        end = recipeReadHandler.eof();
+        sendFpBuf_.header->currentItemNum = readCnt / CHUNK_HASH_SIZE;
+        if(sendFpBuf_.header->currentItemNum < sendRecipeBatchSize_){
+            sendFpBuf_.header->messageType = EDGE_UPLOAD_FP_END;
+        }
+        if (!dataSecureChannel_->SendData(conChannelRecord_.second, sendFpBuf_.sendBuffer, 
+                sizeof(NetworkHead_t) + readCnt)) {
+                tool::Logging(myName_.c_str(), "send the recipe batch error.\n");
+                exit(EXIT_FAILURE);
+        }
+    }
+
 }
 
 void Uploader::Run() {
@@ -132,16 +133,6 @@ void Uploader::Run() {
                     dataSecureChannel_->Finish(conChannelRecord_);
                     break;
                 }
-                case CHUNK_FP: {
-                    // this is a chunk fp
-                    this->ProcessFp(tmpChunk.chunkHash);
-                    break;
-                }
-                case FP_END: {
-                    //this is the fps tail
-                    this->ProcessFpEnd();
-                    break;
-                }
                 default: {
                     tool::Logging(myName_.c_str(), "wrong data type.\n");
                     exit(EXIT_FAILURE);
@@ -166,7 +157,7 @@ void Uploader::ProcessRecipeEnd(FileRecipeHead_t& recipeHead) {
     }
 
     // send the recipe end (without session encryption)
-    sendChunkBuf_.header->messageType = CLIENT_UPLOAD_RECIPE_END;
+    sendChunkBuf_.header->messageType = EDGE_UPLOAD_CHUNK_END;
     sendChunkBuf_.header->dataSize = sizeof(FileRecipeHead_t);
     memcpy(sendChunkBuf_.dataBuffer, &recipeHead,
         sizeof(FileRecipeHead_t));
@@ -200,65 +191,17 @@ void Uploader::ProcessChunk(Chunk_t& inputChunk) {
     return ;
 }
 
-//ljh add
-void Uploader::ProcessFpEnd() {
-    // first check the send fp buffer
-    if (sendFpBuf_.header->currentItemNum != 0) {
-        this->SendFps();
-    }
-
-    // send the fp end
-    sendFpBuf_.header->messageType = UPLOAD_FP_END;
-    if (!dataSecureChannel_->SendData(conChannelRecord_.second,
-        sendFpBuf_.sendBuffer, sizeof(NetworkHead_t))) {
-        tool::Logging(myName_.c_str(), "send the fp end error.\n");
-        exit(EXIT_FAILURE);
-    }
-    return ;
-}
-void Uploader::ProcessFp(uint8_t* fp) {
-    // update the send chunk buffer
-    memcpy(sendFpBuf_.dataBuffer + sendFpBuf_.header->dataSize, fp, CHUNK_HASH_SIZE);
-    sendFpBuf_.header->dataSize += CHUNK_HASH_SIZE;
-    sendFpBuf_.header->currentItemNum++;
-    if (sendFpBuf_.header->currentItemNum % sendChunkBatchSize_ == 0) { 
-        this->SendFps();
-    }
-    return ;
-}
-void Uploader::SendFps() {
-    sendFpBuf_.header->messageType = UPLOAD_FP;
-    if (!dataSecureChannel_->SendData(conChannelRecord_.second, 
-        sendFpBuf_.sendBuffer, 
-        sizeof(NetworkHead_t) + sendFpBuf_.header->dataSize)) {
-        tool::Logging(myName_.c_str(), "send the fp batch error.\n");
-        exit(EXIT_FAILURE);
-    }
-    // clear the current chunk buffer
-    sendFpBuf_.header->currentItemNum = 0;
-    sendFpBuf_.header->dataSize = 0;
-    return ;
-}
-
 /**
  * @brief send a batch of chunks
  * 
  * @param chunkBuffer the chunk buffer
  */
 void Uploader::SendChunks() {
-    sendChunkBuf_.header->messageType = CLIENT_UPLOAD_CHUNK;
-
-    // encrypt the payload with the session key
-    cryptoObj_->SessionKeyEnc(cipherCtx_, sendChunkBuf_.dataBuffer,
-        sendChunkBuf_.header->dataSize, sessionKey_,
-        sendEncBuffer_.dataBuffer);
-
-    memcpy(sendEncBuffer_.header, sendChunkBuf_.header, 
-        sizeof(NetworkHead_t));
-    
+    sendChunkBuf_.header->messageType = EDGE_UPLOAD_CHUNK;
+  
     if (!dataSecureChannel_->SendData(conChannelRecord_.second, 
-        sendEncBuffer_.sendBuffer, 
-        sizeof(NetworkHead_t) + sendEncBuffer_.header->dataSize)) {
+        sendChunkBuf_.sendBuffer, 
+        sizeof(NetworkHead_t) + sendChunkBuf_.header->dataSize)) {
         tool::Logging(myName_.c_str(), "send the chunk batch error.\n");
         exit(EXIT_FAILURE);
     }
@@ -267,6 +210,5 @@ void Uploader::SendChunks() {
     sendChunkBuf_.header->currentItemNum = 0;
     sendChunkBuf_.header->dataSize = 0;
     batchNum_++;
-
     return ;
 }

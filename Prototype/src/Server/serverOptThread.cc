@@ -355,39 +355,39 @@ void ServerOptThread::Run(SSL* clientSSL) {
     }
     gettimeofday(&eTime, NULL);
     totalTime += tool::GetTimeDiff(sTime, eTime);
-    /*
-    if(){
+
+    if(){ //TODO: 判断edge剩余容量大小
         uint32_t edgeID = config.GetClientID();
         
         SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageServerIP(), 
         config.GetStoragePort(), IN_CLIENTSIDE);
         pair<int, SSL*> serverConnectionRecord = dataSecureChannel->ConnectSSL();
         SSL* serverConnection = serverConnectionRecord.second;
-        
-        SessionKeyExchange* sessionKeyObj = new SessionKeyExchange(dataSecureChannel);
-        uint8_t sessionKey[CHUNK_HASH_SIZE] = {0};
-        sessionKeyObj->GeneratingSecret(sessionKey, serverConnection, edgeID);
-        
+          
         uploaderObj_ = new Uploader(dataSecureChannel);
         uploaderObj_->SetConnectionRecord(serverConnectionRecord);
-        uploaderObj_->SetSessionKey(sessionKey, CHUNK_HASH_SIZE);
         
         string updateFile;
-        //TODO：启动一个线程选择上传文件，计算上传指纹
+        //TODO：选择上传文件
     
         string fullName = updateFile + to_string(edgeID);
         uint8_t fileNameHash[CHUNK_HASH_SIZE] = {0};
         cryptoObj->GenerateHash(mdCtx, (uint8_t*)&fullName[0],
             fullName.size(), fileNameHash);
 
+        uploaderObj_->UploadFileUpRecipe(fileNameHash);
+
+        //Todo:接收返回的bool数组，再上传chunks
+        
+        edgeChunkerObj_ = new EdgeChunker();
         MessageQueue<Data_t>* chunker2SenderMQ = new MessageQueue<Data_t>(CHUNK_QUEUE_SIZE);
+        edgeChunkerObj_->SetOutputMQ(chunker2SenderMQ);
         uploaderObj_->SetInputMQ(chunker2SenderMQ);
-        uploaderObj_->UploadLogin(config.GetLocalSecret(),fileNameHash);
         
         thTmp = new boost::thread(attrs, boost::bind(&Uploader::Run, uploaderObj_));
         thList.push_back(thTmp); 
     }
-    */
+    
     // clean up
     for (auto it : thList) {
         delete it;

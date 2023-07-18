@@ -38,6 +38,9 @@ class EcallRecvDecoder {
          */
         void RecoverOneChunk(uint8_t* chunkBuffer, uint8_t* MLEKey,
             uint8_t* chunkHash, SendMsgBuffer_t* restoreChunkBuf, EVP_CIPHER_CTX* cipherCtx);
+
+        void RecoverOneChunkForEdgeUpload(uint8_t* chunkBuffer, uint8_t* chunkHash, 
+        SendMsgBuffer_t* restoreChunkBuf);
     public:
 
         int lz4_times = 0;
@@ -71,6 +74,8 @@ class EcallRecvDecoder {
         void ProcRecipeBatch(uint8_t* recipeBuffer, size_t recipeNum, 
             ResOutSGX_t* resOutSGX);
 
+        void ProcRecipeBatchForEdgeUpload(uint8_t* recipeBuffer, size_t recipeNum, 
+            ResOutSGX_t* resOutSGX, bool* isIncloud);
         /**
          * @brief process the tail batch of recipes
          * 

@@ -18,6 +18,7 @@
 #include "absIndex.h"
 #include "enclaveIndex.h"
 #include "uploader.h"
+#include "edgeChunker.h"
 
 // for basic build block
 #include "factoryDatabase.h"
@@ -48,6 +49,7 @@ class ServerOptThread {
         DataWriter* dataWriterObj_;
         StorageCore* storageCoreObj_;
         Uploader* uploaderObj_;
+        EdgeChunker* edgeChunkerObj_;
 
         // for restore
         EnclaveRecvDecoder* recvDecoderObj_;

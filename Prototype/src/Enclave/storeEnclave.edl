@@ -94,8 +94,13 @@ enclave {
         public void Ecall_ProcRecipeBatch([user_check] uint8_t* recipeBuffer, size_t recipeNum, 
             [user_check] ResOutSGX_t* resOutSGX);
 
+        public void Ecall_ProcRecipeBatchForEdgeUpload(uint8_t* recipeBuffer, size_t recipeNum, 
+            [user_check] ResOutSGX_t* resOutSGX, bool* isIncloud);
+
         /* process the tail batch of file recipes*/
         public void Ecall_ProcRecipeTailBatch([user_check] ResOutSGX_t* resOutSGX);
+
+        public void Ecall_ProcRecipeTailBatchForEdgeUpload([user_check] ResOutSGX_t* resOutSGX);
 
         /* process current batch of chunks*/
         public void Ecall_ProcChunkBatch([user_check] SendMsgBuffer_t* recvChunkBuffer,
