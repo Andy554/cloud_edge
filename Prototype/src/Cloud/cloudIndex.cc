@@ -96,7 +96,8 @@ void CloudIndex::UpdateFileRecipe(string &chunkAddrStr, Recipe_t* inRecipe,
  * @param recvFpBuf the recv Fp buffer
  * @param upOutSGX the structure to store the enclave related variable
  */
-void CloudIndex::ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf) {
+void CloudIndex::ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf, 
+    UpOutSGX_t* upOutSGX) {
     // sendBuffer = header + fpBuffer
     uint8_t* recvBuffer = recvFpBuf->fpBuffer; // data 从 fp 直接开始读，不需要考虑 header 的偏移
     // get the fp num 当前批次 fp num 

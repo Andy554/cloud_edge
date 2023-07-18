@@ -16,8 +16,7 @@
  * @brief Construct a new DataReceiver object
  * 
  * @param absIndexObj the pointer to the index obj
- * @param dataSecurity the pointer to the security channel
- * @param eidSGX the sgx id
+ * @param dataSecureChannel the pointer to the security channel
  */
 DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel) {
     // set up the connection and interface
@@ -46,7 +45,7 @@ DataReceiver::~DataReceiver() {
 void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     uint32_t recvSize = 0;
     string edgeIP;
-    UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX;
+    UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX; // 整理后传到 enclave，cloud 虽然没有 enclave，但是传入精简的结构体会不会减少开销
     SendMsgBuffer_t* recvChunkBuf = &outEdge->_recvChunkBuf;
     Container_t* curContainer = &outEdge->_curContainer;
     SSL* edgeSSL = outEdge->_edgeSSL;
@@ -56,28 +55,61 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     double totalProcessTime = 0;
 
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
+    bool end = false;
+    while (!end) {
+        // receive fp 
+        if (!dataSecureChannel_->ReceiveData(edgeSSL, recvFpBuf->sendBuffer, 
+            recvSize)) {
+            tool::Logging(myName_.c_str(), "edge closed socket connect, thread exit now.\n");
+            dataSecureChannel_->GetClientIp(edgeIP, edgeSSL);
+            dataSecureChannel_->ClearAcceptedClientSd(edgeSSL);
+            break;
+        } else {
+            gettimeofday(&sProcTime, NULL);
+            switch (recvFpBuf->header->messageType) { // recvFpBuf->header->messageType
+                case EDGE_UPLOAD_FP: {// 新增，服务器上传指纹，我们先返回指纹是否存在，然后才上传 chunk
+                    // TODO:处理一个fp batch
+                    absIndexObj_->ProcessFpOneBatch(recvFpBuf, upOutSGX); 
+                    break;
+                }
+                case EDGE_UPLOAD_FP_END: {// 服务器上传最后一批指纹
+                    // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge
+                    absIndexObj_->ProcessFpTailBatch(upOutSGX); 
+                    end = true;
+                    break;
+                }
+                default: {
+                    // receive the wrong message type
+                    tool::Logging(myName_.c_str(), "wrong received message type.\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            gettimeofday(&eProcTime, NULL);
+            totalProcessTime += tool::GetTimeDiff(sProcTime, eProcTime);
+        }
+
     while (true) {
         // receive data 
         if (!dataSecureChannel_->ReceiveData(edgeSSL, recvChunkBuf->sendBuffer, 
             recvSize)) {
             tool::Logging(myName_.c_str(), "edge closed socket connect, thread exit now.\n");
-            dataSecureChannel_->GetEdgeIp(edgeIP, edgeSSL);
-            dataSecureChannel_->ClearAcceptedEdgeSd(edgeSSL);
+            dataSecureChannel_->GetClientIp(edgeIP, edgeSSL);
+            dataSecureChannel_->ClearAcceptedClientSd(edgeSSL);
             break;
         } else {
             gettimeofday(&sProcTime, NULL);
-            switch (recvChunkBuf->header->messageType) {
-                case CLIENT_UPLOAD_CHUNK: {
-                    absIndexObj_->ProcessOneBatch(recvChunkBuf, upOutSGX); 
+            switch (recvChunkBuf->header->messageType) { // recvFpBuf->header->messageType
+                case EDGE_UPLOAD_CHUNK: {
+                    absIndexObj_->ProcessOneBatch(recvChunkBuf, upOutSGX); // ? chunk 存 recvChunkBuf
                     batchNum_++;
                     break;
                 }
-                case CLIENT_UPLOAD_RECIPE_END: {
+                case EDGE_UPLOAD_CHUNK_END: {
                     // this is the end of one upload 
                     absIndexObj_->ProcessTailBatch(upOutSGX);
                     // finalize the file recipe
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
-                        outEdge->_recipeWriteHandler);
+                        outEdge->_recipeWriteHandler); // 写入 file recipe 信息 fileSize and totalChunkNum
                     recipeEndNum_++;
 
                     // update the upload data size
@@ -105,6 +137,6 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
         edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 
     cloudinfo->enclaveProcessTime = totalProcessTime;
-    Ecall_GetEnclaveInfo(eidSGX_, cloudinfo);
+    // Ecall_GetEnclaveInfo(eidSGX_, cloudinfo); // 获取 sgx_info 这里不用吧?
     return ;
 }
