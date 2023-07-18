@@ -155,7 +155,7 @@ void ClientVar::DestroyUploadBuffer() {
  */
 void ClientVar::InitRestoreBuffer() {
     // init buffer    
-    _readRecipeBuf = (uint8_t*) malloc(sendRecipeBatchSize_ * sizeof(RecipeEntry_t));
+    _readRecipeBuf = (uint8_t*) malloc(sendRecipeBatchSize_ * CHUNK_HASH_SIZE);
     _reqContainer.idBuffer = (uint8_t*) malloc(CONTAINER_CAPPING_VALUE * 
         CONTAINER_ID_LENGTH);
     _reqContainer.containerArray = (uint8_t**) malloc(CONTAINER_CAPPING_VALUE * 

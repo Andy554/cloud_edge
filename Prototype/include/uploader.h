@@ -24,11 +24,12 @@ class Uploader {
 
         uint64_t batchNum_ = 0;
         
-        // the sender buffer 
+        // the send buffer 
         SendMsgBuffer_t sendChunkBuf_;
         SendMsgBuffer_t sendFpBuf_;
-        SendMsgBuffer_t sendEncBuffer_;
         MessageQueue<Data_t>* inputMQ_;
+
+        ifstream recipeReadHandler;
 
         double totalTime_ = 0;
 
@@ -60,8 +61,8 @@ class Uploader {
         void Run();
 
 
-        void UploadLogin(string localSecret, uint8_t* fileNameHash);
-        
+        void UploadFileUpRecipe(uint8_t* fileNameHash);
+
 
         void SetConnectionRecord(pair<int, SSL*> conChannelRecord) {
             conChannelRecord_ = conChannelRecord;

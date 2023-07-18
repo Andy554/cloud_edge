@@ -282,6 +282,163 @@ void EcallRecvDecoder::ProcRecipeBatch(uint8_t* recipeBuffer, size_t recipeNum,
 // ------------------------------------
 }
 
+void EcallRecvDecoder::ProcRecipeBatchForEdgeUpload(uint8_t* recipeBuffer, size_t recipeNum, 
+    ResOutSGX_t* resOutSGX, bool* isIncloud) {
+
+    Ocall_GetCurrentTime(&_starttime);
+    // out-enclave info
+    ReqContainer_t* reqContainer = (ReqContainer_t*)resOutSGX->reqContainer;
+    uint8_t* idBuffer = reqContainer->idBuffer;
+    uint8_t** containerArray = reqContainer->containerArray;
+    SendMsgBuffer_t* sendChunkBuf = resOutSGX->sendChunkBuf;
+
+    // in-enclave info
+    EnclaveClient* sgxClient = (EnclaveClient*)resOutSGX->sgxClient;
+    SendMsgBuffer_t* restoreChunkBuf = &sgxClient->_restoreChunkBuffer;
+    EVP_CIPHER_CTX* cipherCtx = sgxClient->_cipherCtx;
+    uint8_t* masterKey = sgxClient->_masterKey;
+
+    string tmpContainerNameStr;
+    unordered_map<string, uint32_t> tmpContainerMap;
+    tmpContainerMap.reserve(CONTAINER_CAPPING_VALUE);
+
+    // 用于构建inRestoreEntry
+    InRestoreEntry_t* inRestoreEntry = sgxClient->_inRestoreEntry;
+    // 用于restore chunk时读取entry
+    InRestoreEntry_t* inRestoreEntryForRestore = sgxClient->_inRestoreEntry;
+    OutRestoreEntry_t* outRestoreEntry = resOutSGX->outRestoreEntry;
+    uint8_t tmpHash[CHUNK_HASH_SIZE];
+
+    // ------------------------------------
+    // 构建restore时每个chunk的entry
+    // ------------------------------------
+
+    // decrypt the recipe file
+    // 把FP读取到recipe buffer里面
+    cryptoObj_->DecryptWithKey(cipherCtx, recipeBuffer, recipeNum * CHUNK_HASH_SIZE,
+        masterKey, sgxClient->_plainHashBuffer);
+    Enclave::Logging(myName_.c_str(), "Dec file recipe successful.\n");
+    
+    uint8_t upChunkNum = 0;
+    for(size_t i = 0; i < recipeNum; i++) {
+        if(!isIncloud[i]){
+            // 更新inRestoreEntry
+            memcpy(inRestoreEntry->chunkHash, sgxClient->_plainHashBuffer + i * CHUNK_HASH_SIZE, 
+                CHUNK_HASH_SIZE);
+
+            // 更新outRestoreEntry
+            // 提取一个FP，然后加密
+            memcpy(tmpHash, sgxClient->_plainHashBuffer, CHUNK_HASH_SIZE);
+            cryptoObj_->IndexAESCMCEnc(cipherCtx, tmpHash, CHUNK_HASH_SIZE,
+                Enclave::indexQueryKey_, tmpHash);
+            // 传输到outClient
+            memcpy(outRestoreEntry->chunkHash, tmpHash, CHUNK_HASH_SIZE);
+            upChunkNum++;
+        }
+        inRestoreEntry++;
+        outRestoreEntry++;
+    }
+    *resOutSGX->recipeNum = upChunkNum;
+
+    // ------------------------------------
+    // 查询index，通过FP获取容器的位置
+    // ------------------------------------
+    
+    // query FP index
+    Ocall_QueryOutIndexForRestore(resOutSGX->outClient);
+    Enclave::Logging(myName_.c_str(), "query successful.\n");
+    
+    // ------------------------------------
+    // 逐个恢复chunk
+    // ------------------------------------
+
+    outRestoreEntry = resOutSGX->outRestoreEntry;
+    inRestoreEntry = sgxClient->_inRestoreEntry;
+    for (size_t i = 0, j = 0; i < upChunkNum; i++) {
+
+        // ------------------------------------
+        // 获取container name
+        // ------------------------------------
+
+        // Enclave::Logging(myName_.c_str(), "restoring...: %lu\n", i);
+
+        // 解密containerName
+        cryptoObj_->DecryptWithKey(cipherCtx, outRestoreEntry->edgeContainerName,
+                            CONTAINER_ID_LENGTH, sgxClient->_masterKey, 
+                            inRestoreEntry->edgeContainerName);
+
+        // Enclave::Logging(myName_.c_str(), "restore edge container name: %s\n", 
+        //     inRestoreEntry->edgeContainerName);
+
+        tmpContainerNameStr.assign((char*)inRestoreEntry->edgeContainerName, CONTAINER_ID_LENGTH);
+        auto findResult = tmpContainerMap.find(tmpContainerNameStr);
+
+        if (findResult == tmpContainerMap.end()) {
+            // 实现ID到ID号的映射
+            tmpContainerMap[tmpContainerNameStr] = reqContainer->idNum;
+            // 更新到reqContainer
+            memcpy(idBuffer + reqContainer->idNum * CONTAINER_ID_LENGTH, 
+                tmpContainerNameStr.c_str(), CONTAINER_ID_LENGTH);
+            // 更新ContainerID到inEntry
+            inRestoreEntry->containerID = reqContainer->idNum;
+
+            reqContainer->idNum++;
+        }
+        else {
+             inRestoreEntry->containerID = findResult->second;
+        }
+
+        // ------------------------------------
+        // 当所需container的数量达到container buffer的上线，
+        // 开始读取container并恢复这部分chunk
+        // ------------------------------------
+
+        if (reqContainer->idNum == CONTAINER_CAPPING_VALUE || i == upChunkNum - 1) {
+            // 加载容器
+            Ocall_GetReqContainers(resOutSGX->outClient);
+            
+            // 对已经加载container的chunk进行恢复
+            for(j; j <= i; j++) {
+                uint32_t containerID = inRestoreEntryForRestore->containerID;
+                uint8_t* chunkBuffer = containerArray[containerID];
+
+                // if(j == 0) {
+                //     this->RecoverOneChunk(chunkBuffer, inRestoreEntryForRestore->mleKey, 
+                //         inRestoreEntryForRestore->chunkHash, restoreChunkBuf, cipherCtx);
+                // }
+                this->RecoverOneChunkForEdgeUpload(chunkBuffer, inRestoreEntryForRestore->chunkHash, 
+                    restoreChunkBuf);
+
+                // ------------------------------------
+                // 当恢复的chunk数量到达一个batch大小时，开始向client发送data
+                // ------------------------------------
+
+                if (restoreChunkBuf->header->currentItemNum % 
+                    Enclave::sendChunkBatchSize_ == 0 || j == i) {
+                    
+                    // copy the header to the send buffer
+                    restoreChunkBuf->header->messageType = EDGE_UPLOAD_CHUNK;
+                    memcpy(sendChunkBuf->header, restoreChunkBuf->header, sizeof(NetworkHead_t));
+                    Ocall_SendRestoreData(resOutSGX->outClient);
+
+                    restoreChunkBuf->header->dataSize = 0;
+                    restoreChunkBuf->header->currentItemNum = 0;
+                }
+                
+                inRestoreEntryForRestore++;
+            }
+
+            reqContainer->idNum = 0;
+            tmpContainerMap.clear();
+        }
+
+        outRestoreEntry++;
+        inRestoreEntry++;
+    }
+
+    return ;
+}
+
 /**
  * @brief process the tail batch of recipes
  * 
@@ -315,78 +472,31 @@ void EcallRecvDecoder::ProcRecipeTailBatch(ResOutSGX_t* resOutSGX) {
     restoreChunkBuf->header->dataSize = 0;
 
     return ;
+    
+}
+
+void EcallRecvDecoder::ProcRecipeTailBatchForEdgeUpload(ResOutSGX_t* resOutSGX) {
+
+    // out-enclave info
+    SendMsgBuffer_t* sendChunkBuf = resOutSGX->sendChunkBuf;
+
+    // in-enclave info
+    EnclaveClient* sgxClient = (EnclaveClient*)resOutSGX->sgxClient;
+    SendMsgBuffer_t* restoreChunkBuf = &sgxClient->_restoreChunkBuffer;
 
     // ------------------------------------
-    // START for origin
+    // 发送消息提示cloud chunk上传完毕
     // ------------------------------------
 
-    // // out-enclave info
-    // ReqContainer_t* reqContainer = (ReqContainer_t*)resOutSGX->reqContainer;
-    // uint8_t** containerArray = reqContainer->containerArray;
-    // SendMsgBuffer_t* sendChunkBuf = resOutSGX->sendChunkBuf;
+    // copy the header to the send buffer
+    restoreChunkBuf->header->messageType = EDGE_UPLOAD_CHUNK_END;
+    memcpy(sendChunkBuf->header, restoreChunkBuf->header, sizeof(NetworkHead_t));
+    Ocall_SendRestoreData(resOutSGX->outClient);
 
-    // // in-enclave info
-    // EnclaveClient* sgxClient = (EnclaveClient*)resOutSGX->sgxClient;
-    // SendMsgBuffer_t* restoreChunkBuf = &sgxClient->_restoreChunkBuffer;
-    // EVP_CIPHER_CTX* cipherCtx = sgxClient->_cipherCtx;
-    // uint8_t* sessionKey = sgxClient->_sessionKey;
+    restoreChunkBuf->header->currentItemNum = 0;
+    restoreChunkBuf->header->dataSize = 0;
 
-    // if (sgxClient->_enclaveRecipeBuffer.size() != 0) {
-    //     // start to let outside application to fetch the container data
-    //     Ocall_GetReqContainers(resOutSGX->outClient);
-
-    //     uint32_t remainChunkNum = sgxClient->_enclaveRecipeBuffer.size();
-    //     bool endFlag = 0;
-    //     for (size_t idx = 0; idx < sgxClient->_enclaveRecipeBuffer.size(); idx++) {
-    //         uint32_t containerID = sgxClient->_enclaveRecipeBuffer[idx].containerID;
-    //         uint32_t offset = sgxClient->_enclaveRecipeBuffer[idx].offset;
-    //         uint32_t chunkSize = sgxClient->_enclaveRecipeBuffer[idx].length;
-    //         uint8_t* chunkBuffer = containerArray[containerID] + offset;
-    //         this->RecoverOneChunk(chunkBuffer, chunkSize, restoreChunkBuf, 
-    //             cipherCtx);
-    //         remainChunkNum--;
-    //         if (remainChunkNum == 0) {
-    //             // this is the last batch of chunks;
-    //             endFlag = 1;
-    //         }
-    //         if ((restoreChunkBuf->header->currentItemNum % 
-    //             Enclave::sendChunkBatchSize_ == 0) || endFlag) {
-    //             cryptoObj_->SessionKeyEnc(cipherCtx, restoreChunkBuf->dataBuffer,
-    //                 restoreChunkBuf->header->dataSize, sessionKey, 
-    //                 sendChunkBuf->dataBuffer);
-
-    //             // copy the header to the send buffer
-    //             if (endFlag == 1) {
-    //                 restoreChunkBuf->header->messageType = SERVER_RESTORE_FINAL;
-    //             } else {
-    //                 restoreChunkBuf->header->messageType = SERVER_RESTORE_CHUNK;
-    //             }
-    //             memcpy(sendChunkBuf->header, restoreChunkBuf->header, sizeof(NetworkHead_t));
-    //             Ocall_SendRestoreData(resOutSGX->outClient);
-
-    //             restoreChunkBuf->header->dataSize = 0;
-    //             restoreChunkBuf->header->currentItemNum = 0;
-    //         }
-    //     }
-    // } else {
-    //     cryptoObj_->SessionKeyEnc(cipherCtx, restoreChunkBuf->dataBuffer,
-    //         restoreChunkBuf->header->dataSize, sessionKey,
-    //         sendChunkBuf->dataBuffer);
-
-    //     // copy the header to the send buffer
-    //     restoreChunkBuf->header->messageType = SERVER_RESTORE_FINAL;
-    //     memcpy(sendChunkBuf->header, restoreChunkBuf->header, sizeof(NetworkHead_t));
-    //     Ocall_SendRestoreData(resOutSGX->outClient);
-
-    //     restoreChunkBuf->header->currentItemNum = 0;
-    //     restoreChunkBuf->header->dataSize = 0;
-    // }
-
-    // return ;
-
-    // ------------------------------------
-    // START for origin
-    // ------------------------------------
+    return ;
     
 }
 
@@ -525,4 +635,68 @@ void EcallRecvDecoder::RecoverOneChunk(uint8_t* chunkBuffer, uint8_t* MLEKey,
     // ------------------------------------
     // END for origin
     // ------------------------------------
+}
+
+void EcallRecvDecoder::RecoverOneChunkForEdgeUpload(uint8_t* chunkBuffer, 
+        uint8_t* chunkHash, SendMsgBuffer_t* restoreChunkBuf) {
+    uint8_t* outputBuffer = restoreChunkBuf->dataBuffer + 
+        restoreChunkBuf->header->dataSize;
+
+    string tmpChunkHashORI;
+    string tmpChunkHashGET;
+    size_t bufferOffset;
+    size_t chunkLength;
+    size_t chunkOffset;
+    size_t chunkNum = 0;
+    
+    // --------------------
+    // 获取chunk在container中的位置
+    // --------------------
+
+    // 获取这个container chunk的数量
+    chunkNum = (chunkBuffer[0] << 0) +
+                (chunkBuffer[1] << 8) +
+                (chunkBuffer[2] << 16) +
+                (chunkBuffer[3] << 24);
+    // Enclave::Logging(myName_.c_str(), "recover one chunk: restore chunk num: %lu\n", chunkNum);
+
+    // 获取chunk的FP以及长度和偏移
+    bufferOffset = 4u;
+    chunkLength = 0u;
+    chunkOffset = 0u;
+    tmpChunkHashORI.assign((char*)chunkHash, CHUNK_HASH_SIZE);
+
+
+    for (size_t i = 0; i < chunkNum; i++){
+        // 获取一个hash
+        tmpChunkHashGET.resize(CHUNK_HASH_SIZE, 0);
+        tmpChunkHashGET.assign((char*)chunkBuffer + bufferOffset, CHUNK_HASH_SIZE);
+        // Enclave::Logging(myName_.c_str(), "recover one chunk: get chunk Hash: %s.\n", tmpChunkHashGET.c_str());
+        if (!tmpChunkHashORI.compare(tmpChunkHashGET)) {
+            // Enclave::Logging(myName_.c_str(), "find success.\n");
+
+            bufferOffset += CHUNK_HASH_SIZE;
+            // 找到hash 读取长度和偏移
+            chunkOffset = (chunkBuffer[bufferOffset + 0u] << 0) +
+                            (chunkBuffer[bufferOffset + 1u] << 8) +
+                            (chunkBuffer[bufferOffset + 2u] << 16) +
+                            (chunkBuffer[bufferOffset + 3u] << 24);
+            chunkOffset += (CHUNK_HASH_SIZE + 8u) * chunkNum + 4u;
+
+            bufferOffset += 4u;
+            chunkLength = (chunkBuffer[bufferOffset + 0u] << 0) +
+                            (chunkBuffer[bufferOffset + 1u] << 8) +
+                            (chunkBuffer[bufferOffset + 2u] << 16) +
+                            (chunkBuffer[bufferOffset + 3u] << 24);
+            break;
+        }
+        bufferOffset += CHUNK_HASH_SIZE + 8u;
+    }
+
+    memcpy(outputBuffer, &chunkLength, sizeof(uint32_t));
+    memcpy(outputBuffer + sizeof(uint32_t), chunkBuffer + chunkOffset, chunkLength);
+    restoreChunkBuf->header->dataSize += sizeof(uint32_t) + chunkLength;
+
+    restoreChunkBuf->header->currentItemNum++;
+    return ;
 }
