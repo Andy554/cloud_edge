@@ -18,6 +18,9 @@
         "readCacheSize_": 64
     },
     "DataSender": {
+        "storageCloudIp_": "192.168.5.103",
+        "storageCloudPort_": 17788,
+        "cloudID_": 1,
         "storageServerIp_": "192.168.5.103",
         "storageServerPort_": 17778,
         "clientID_": 1,

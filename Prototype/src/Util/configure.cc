@@ -58,6 +58,11 @@ void Configure::ReadConf(std::string path) {
     storageServerIp_ = root.get<std::string>("DataSender.storageServerIp_");
     storageServerPort_ = root.get<int>("DataSender.storageServerPort_");
 
+    // for storage Cloud
+    cloudID_ = root.get<uint32_t>("DataSender.cloudID_");
+    storageCloudIp_ = root.get<std::string>("DataSender.storageCloudIp_");
+    storageCloudPort_ = root.get<int>("DataSender.storageCloudPort_");
+
     // for client id
     clientID_ = root.get<uint32_t>("DataSender.clientID_");
     sendChunkBatchSize_ = root.get<uint64_t>("DataSender.sendChunkBatchSize_");

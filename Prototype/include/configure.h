@@ -40,9 +40,14 @@ private:
     // restore setting
     uint64_t readCacheSize_;
     
-    // for storage ip
+    // for Server storage ip
     string storageServerIp_;
     int storageServerPort_;
+
+    // for Cloud storage ip
+    string cloudID_;
+    string storageCloudIp_;
+    int storageCloudPort_;  
 
     // client id
     uint32_t clientID_;
@@ -140,6 +145,14 @@ public:
 #else
         return readCacheSize_;
 #endif
+    }
+
+    inline string GetStorageCloudIP() {
+        return storageCloudIp_;
+    }
+    
+    inline int GetStorageCloudPort() {
+        return storageCloudPort_;
     }
 
     inline string GetStorageServerIP() {
