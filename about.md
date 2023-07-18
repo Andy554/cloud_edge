@@ -4,17 +4,7 @@
 - [x] dbeCloud.cc （sgx相关代码暂时放着，避免影响整个系统的正常运行）
 - [x] cloudOptThread.h
 - [ ] cloudOptThread.cc
-
-## 继承关系
-
-AbsIndex([.h](Prototype/include/absIndex.h)):
-- AbsDatabase* indexStore_ / indexStoreObj_ / fp2ChunkDB
-- StorageCore* storageCoreObj_
-- implement: 
-    - absIndexObj_：由EnclaveIndex(fp2ChunkDB_, indexType_, eidSGX_)（[.h](Prototype/include/enclaveIndex.h), [.c](Prototype/src/Index/enclaveIndex.cc)）实现
-
-dataReceiverObj_
-- storageCoreObj_
+- [ ] dataReceiver.cc
 
 ## 调用逻辑
 
@@ -23,6 +13,8 @@ dataReceiverObj_
 
 [serverOptThread](Prototype/src/Server/serverOptThread.cc)
 - `ServerOptThread()`：初始化各种相关的对象，包括`dataWriterObj_`、`storageCoreObj_`、`absIndexObj_`、`dataReceiverObj_`
+    - `absIndexObj_` 由 `EnclaveIndex(fp2ChunkDB_, indexType_, eidSGX_)` 实现
+    - `storageCoreObj_` 由 
 - `Run()`：
     - recv Remote Attestation：调用`dataSecureChannel_->ReceiveData()`，内容写入至`recvBuf`
     - recv Session key：调用`dataSecureChannel_->ReceiveData()`
@@ -71,10 +63,22 @@ dataReceiverObj_
     - 拼接container完整的写路径，然后将其`body`写入到该路径中。
 
 [enclaveIndex](Prototype/src/Index/enclaveIndex.cc)
-- `ProcessOneBatch()` 
-    - Ecall_ProcChunkBatch(): 内置的
-    - Ocall_UpdateOutIndex()
-    
+- `EnclaveIndex()`：其中，调用了[storeECall](Prototype/src/Enclave/ecallSrc/ecall/storeECall.cc)库的函数`Ecall_Init_Upload()`，创建对应类型的执行index对象
+- `ProcessOneBatch()` ：分别调用了[storeECall](Prototype/src/Enclave/ecallSrc/ecall/storeECall.cc)库的函数`Ecall_ProcChunkBatch()`、[storeOCall](Prototype/src/Enclave/ocallSrc/storeOCall.cc)库的函数`Ocall_UpdateOutIndex()`
+
+[storeECall](Prototype/src/Enclave/ecallSrc/ecall/storeECall.cc)
+- `enclaveBaseObj_`：声明了[EnclaveBase](Enclave/ecallSrc/ecallIndex/enclaveBase.cc)类的对象指针，全局共享于多个文件
+- `Ecall_Init_Upload()`：根据`indexType`创建对应的EcallXXXindex类（e.g. `EcallFreqIndex`、`EcallExtremeBinIndex`）的对象，并将其地址赋值给`enclaveBaseObj_`
+- `Ecall_ProcChunkBatch()`：调用`enclaveBaseObj_->ProcessOneBatch()`。（若`enclaveBaseObj_`由`EcallFreqIndex`类实现，则会调用`EcallFreqIndex::ProcessOneBatch()`）
+
+[enclaveBase](Prototype/src/Enclave/ecallSrc/ecallIndex/enclaveBase.cc)
+- public 方法：
+    - `ProcessOneBatch()`：虚函数，需要子类 EcaXXXindex 进行实现
+    - `ProcessTailBatch()`：虚函数，需要子类 EcaXXXindex 进行实现
+- protect 方法：
+    - `ProcessUniqueChunk()`：对chunk加密后，会调用`storageCoreObj_->SaveChunk()`（即`EcallStorageCore::SaveChunk`，[.cc](Prototype/src/Enclave/ecallSrc/ecallStore/ecallStorage.cc)），分配到某一个container
+
+
 [storeOCall](Prototype/src/Enclave/ocallSrc/storeOCall.cc)
 - `Ocall_UpdateOutIndex()`：更新外部去重的索引
     - 遍历`outQuery->outQueryBase`中的每一项，若发现`entry->dedupFlag`为`UNIQUE`，则调用`indexStoreObj_->InsertBothBuffer()`
@@ -100,3 +104,14 @@ dataReceiverObj_
         - （若存在）从cache中拷贝至`containerArray[i]`
         - （不存在）得到当前container在磁盘中的路径，通过文件流`containerIn`，读入到`containerArray[i]`，同时更新cache
 
+## 继承关系
+
+EnclaveBase -> EcallFreqIndex 
+
+AbsIndex -> EnclaveIndex
+
+AbsIndex([.h](Prototype/include/absIndex.h)):
+- AbsDatabase* indexStore_ / indexStoreObj_ / fp2ChunkDB
+- StorageCore* storageCoreObj_
+- implement: 
+    - absIndexObj_：由EnclaveIndex(fp2ChunkDB_, indexType_, eidSGX_)（[.h](Prototype/include/enclaveIndex.h), [.c](Prototype/src/Index/enclaveIndex.cc)）实现
