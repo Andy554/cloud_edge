@@ -356,7 +356,7 @@ void ServerOptThread::Run(SSL* clientSSL) {
     gettimeofday(&eTime, NULL);
     totalTime += tool::GetTimeDiff(sTime, eTime);
 
-    if(){ //TODO: 判断edge剩余容量大小
+    if(1){ //TODO: 判断edge剩余容量大小
         uint32_t edgeID = config.GetClientID();
         
         SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageServerIP(), 
@@ -372,19 +372,31 @@ void ServerOptThread::Run(SSL* clientSSL) {
     
         string fullName = updateFile + to_string(edgeID);
         uint8_t fileNameHash[CHUNK_HASH_SIZE] = {0};
+        
+        CryptoPrimitive* cryptoObj = new CryptoPrimitive(CIPHER_TYPE, HASH_TYPE);
+        EVP_MD_CTX* mdCtx = EVP_MD_CTX_new();
         cryptoObj->GenerateHash(mdCtx, (uint8_t*)&fullName[0],
             fullName.size(), fileNameHash);
+        delete cryptoObj;
+        EVP_MD_CTX_free(mdCtx);
 
         uploaderObj_->UploadFileUpRecipe(fileNameHash);
 
-        //Todo:接收返回的bool数组，再上传chunks
-        
-        edgeChunkerObj_ = new EdgeChunker();
-        MessageQueue<Data_t>* chunker2SenderMQ = new MessageQueue<Data_t>(CHUNK_QUEUE_SIZE);
-        edgeChunkerObj_->SetOutputMQ(chunker2SenderMQ);
-        uploaderObj_->SetInputMQ(chunker2SenderMQ);
-        
-        thTmp = new boost::thread(attrs, boost::bind(&Uploader::Run, uploaderObj_));
+        //Todo:接收返回的bool数组
+        bool* isInCloud;
+
+        char fileHashBuf[CHUNK_HASH_SIZE * 2 + 1];
+        for (uint32_t i = 0; i < CHUNK_HASH_SIZE; i++) {
+            sprintf(fileHashBuf + i * 2, "%02x", fileNameHash[i]);
+        }
+        string fileName;
+        fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
+        recipePath = config.GetRecipeRootPath() + fileName + config.GetRecipeSuffix();
+
+        edgeChunkerObj_ = new EdgeChunker(dataSecureChannel, eidSGX_, isInCloud);
+        outClient = new ClientVar(edgeID, serverConnection, DOWNLOAD_OPT, recipePath, upRecipePath);
+
+        thTmp = new boost::thread(attrs, boost::bind(&EdgeChunker::Run, edgeChunkerObj_, outClient));
         thList.push_back(thTmp); 
     }
     

@@ -82,6 +82,8 @@ class EcallRecvDecoder {
          * @param resOutSGX the pointer to the out-enclave var
          */
         void ProcRecipeTailBatch(ResOutSGX_t* resOutSGX);
+
+        void ProcRecipeTailBatchForEdgeUpload(ResOutSGX_t* resOutSGX);
 };
 
 #endif
