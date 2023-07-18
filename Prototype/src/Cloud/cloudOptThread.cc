@@ -9,7 +9,7 @@
  * 
  */
 
-#include "../../include/cloudOptThead.h"
+#include "../../include/cloudOptThread.h"
 
 /**
  * @brief Construct a new Cloud Opt Thread object

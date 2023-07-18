@@ -27,8 +27,11 @@
     - confirm Client Request Type：根据`messageType`确定`optType`
     - conver the file name hash：将`recvBuf.dataBuffer`转换为`fileHashBuf`，然后再转换为`fileName`，并通过拼接得到`recipePath`
     - file **recipe** path & check file status：调用 `ServerOptThread::CheckFileStatus()`
-        - 无状态（即文件不存在）：调用`dataSecureChannel_->SendData()`，其中`messageType`为`SERVER_FILE_NON_EXIST`
+        - 无状态（即下载不存在文件）：`messageType`为`SERVER_FILE_NON_EXIST`：
+            - 调用`dataSecureChannel_->SendData()` 告知 client 不能下载
+            - 关闭连接
         - 有状态：
+            - 能够继续下一步文件操作
     - init Client vars and do sth according to **optType**
         - `UPLOAD_OPT`
             - 创建`outClient`对象，并调用`Ecall_Init_Client()`进行初始化

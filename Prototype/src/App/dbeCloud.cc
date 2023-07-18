@@ -123,9 +123,9 @@ int main(int argc, char* argv[]) {
     boost::thread_attributes attrs;
     attrs.set_stack_size(THREAD_STACK_SIZE);
     
-    fp2ChunkDB = dbFactory.CreateDatabase(IN_MEMORY, config.GetFp2ChunkDBName());
-    dataSecurityChannelObj = new SSLConnection(config.GetStorageServerIP(), 
-        config.GetStoragePort(), IN_SERVERSIDE);
+    fp2ChunkDB = dbFactory.CreateDatabase(LEVEL_DB, config.GetFp2ChunkDBName()); // 创建数据库实例 // key-value store
+    dataSecurityChannelObj = new SSLConnection(config.GetStorageCloudIP(), 
+        config.GetStorageCloudPort(), IN_CLOUDSIDE);
 
     // check whether enable SGX
 #if (CHECK_SGX_HW == 1)
