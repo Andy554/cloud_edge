@@ -10,5 +10,8 @@ target_link_libraries(DEBEServer ${FINAL_OBJ})
 add_executable(DEBEClient dbeClient.cc)
 target_link_libraries(DEBEClient ${FINAL_OBJ})
 
+add_executable(DEBECloud dbeCloud.cc)
+target_link_libraries(DEBECloud ${FINAL_OBJ})
+
 add_executable(compressSYN synCompress.cc)
 target_link_libraries(compressSYN lz4 UtilCore ${OPENSSL_LIBRARY_OBJ})
