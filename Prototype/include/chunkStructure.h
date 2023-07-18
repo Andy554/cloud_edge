@@ -109,7 +109,7 @@ typedef struct {
 
 typedef struct {
     int messageType;
-    uint32_t clientID;
+    uint32_t clientID; //client端、edge端复用
     uint32_t dataSize;
     uint32_t currentItemNum;
 } NetworkHead_t;

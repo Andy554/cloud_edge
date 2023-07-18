@@ -120,19 +120,19 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     }
 
     // check the client lock here (ensure exist only one client with the same client ID)
-    uint32_t clientID = recvBuf.header->clientID;
+    uint32_t edgeID = recvBuf.header->clientID;
     boost::mutex* tmpLock;
     {
         lock_guard<mutex> lock(clientLockSetLock_);
-        auto clientLockRes = clientLockIndex_.find(clientID);
+        auto clientLockRes = clientLockIndex_.find(edgeID);
         if (clientLockRes != clientLockIndex_.end()) {
             // try to lock this mutex
-            tmpLock = clientLockIndex_[clientID];
+            tmpLock = clientLockIndex_[edgeID];
             tmpLock->lock();
         } else {
             // add a new lock to the current index
             tmpLock = new boost::mutex();
-            clientLockIndex_[clientID] = tmpLock;
+            clientLockIndex_[edgeID] = tmpLock;
             tmpLock->lock();
         }
     }
@@ -164,7 +164,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
     string upRecipePath = config.GetUpRecipeRootPath() +
         fileName + config.GetRecipeSuffix();
-    if (!this->CheckFileStatus(recipePath, optType)) {
+    if (!this->CheckFileStatus(upRecipePath, optType)) {
         recvBuf.header->messageType = CLOUD_FILE_NON_EXIST;
         if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer,
             sizeof(NetworkHead_t))) {
@@ -192,24 +192,24 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     /// check done
     
     // init the vars for this client
-    ClientVar* outClient;
+    EdgeVar* outEdge;
     switch (optType) {
         case UPLOAD_OPT: {
             // update the req number
             totalUploadReqNum_++;
             tool::Logging(myName_.c_str(), "recv the upload request from edge: %u\n",
-                clientID);
-            outClient = new ClientVar(clientID, edgeSSL, UPLOAD_OPT, recipePath);
-            Ecall_Init_Client(eidSGX_, clientID, indexType_, UPLOAD_OPT, 
+                edgeID);
+            outEdge = new EdgeVar(edgeID, edgeSSL, UPLOAD_OPT, upRecipePath);
+            Ecall_Init_Client(eidSGX_, edgeID, indexType_, UPLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
-                &outClient->_upOutSGX.sgxClient);
+                &outEdge->_upOutSGX.sgxClient);
 
             thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
-                outClient, &cloudInfo));
+                outEdge, &cloudInfo));
             thList.push_back(thTmp); 
 #if (MULTI_CLIENT == 0)
             thTmp = new boost::thread(attrs, boost::bind(&DataWriter::Run, dataWriterObj_,
-                outClient->_inputMQ));
+                outEdge->_inputMQ));
             thList.push_back(thTmp);
 #endif
             // send the upload-response to the cloud
@@ -225,19 +225,19 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             // update the req number 
             totalRestoreReqNum_++;
             tool::Logging(myName_.c_str(), "recv the restore request from client: %u\n",
-                clientID);
-            outClient = new ClientVar(clientID, edgeSSL, DOWNLOAD_OPT, recipePath);
-            Ecall_Init_Client(eidSGX_, clientID, indexType_, DOWNLOAD_OPT, 
+                edgeID);
+            outEdge = new EdgeVar(edgeID, edgeSSL, DOWNLOAD_OPT, upRecipePath);
+            Ecall_Init_Client(eidSGX_, edgeID, indexType_, DOWNLOAD_OPT, 
                 recvBuf.dataBuffer + CHUNK_HASH_SIZE,
-                &outClient->_resOutSGX.sgxClient);
+                &outEdge->_resOutSGX.sgxClient);
 
             thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
-                outClient));
+                outEdge));
             thList.push_back(thTmp);
 
             // send the restore-response to the client (include the file recipe header)
-            recvBuf.header->messageType = SERVER_LOGIN_RESPONSE;
-            outClient->_recipeReadHandler.read((char*)recvBuf.dataBuffer,
+            recvBuf.header->messageType = CLOUD_LOGIN_RESPONSE;
+            outEdge->_recipeReadHandler.read((char*)recvBuf.dataBuffer,
                 sizeof(FileRecipeHead_t));
             if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer, 
                 sizeof(NetworkHead_t) + sizeof(FileRecipeHead_t))) {
@@ -248,7 +248,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
         }
         default: {
             tool::Logging(myName_.c_str(), "wrong operation type from client: %u\n",
-                clientID);
+                edgeID);
             exit(EXIT_FAILURE);
         }
     }
@@ -271,11 +271,11 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     // TODO: 对象的销毁
     switch (optType) {
         case UPLOAD_OPT: {
-            Ecall_Destroy_Client(eidSGX_, outClient->_upOutSGX.sgxClient);
+            Ecall_Destroy_Client(eidSGX_, outEdge->_upOutSGX.sgxClient);
             break;
         }
         case DOWNLOAD_OPT: {
-            Ecall_Destroy_Client(eidSGX_, outClient->_resOutSGX.sgxClient);
+            Ecall_Destroy_Client(eidSGX_, outEdge->_resOutSGX.sgxClient);
             break;
         }
         default: {
@@ -285,7 +285,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     }
 
     // print the info
-    double speed = static_cast<double>(outClient->_uploadDataSize) / 1024.0 / 1024.0 
+    double speed = static_cast<double>(outEdge->_uploadDataSize) / 1024.0 / 1024.0 
         / cloudInfo.enclaveProcessTime;
     //TODO: 处理情况的输出
     if (optType == UPLOAD_OPT) { 
@@ -298,14 +298,14 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             << to_string(speed) << endl;
         logFile_.flush();
     }
-    delete outClient; //TODO: 对象的销毁
+    delete outEdge; //TODO: 对象的销毁
     free(recvBuf.sendBuffer);
     tmpLock->unlock();
 
     tool::Logging(myName_.c_str(), "total running time of client %u: %lf\n", 
-        clientID, totalTime);
+        edgeID, totalTime);
     tool::Logging(myName_.c_str(), "total key exchange time of client %u: %lf\n", 
-        clientID, keyExchangeTime); 
+        edgeID, keyExchangeTime); 
 
     return ;
 }

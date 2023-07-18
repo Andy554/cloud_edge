@@ -39,18 +39,18 @@ DataReceiver::~DataReceiver() {
 }
 
 /**
- * @brief the main process to handle new client upload-request connection
+ * @brief the main process to handle new edge upload-request connection
  * 
- * @param outClient the out-enclave client ptr
+ * @param outEdge the out-enclave edge ptr
  * @param enclaveInfo the pointer to the enclave info
  */
-void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
+void DataReceiver::Run(EdgeVar* outEdge, EnclaveInfo_t* enclaveInfo) {
     uint32_t recvSize = 0;
-    string clientIP;
-    UpOutSGX_t* upOutSGX = &outClient->_upOutSGX;
-    SendMsgBuffer_t* recvChunkBuf = &outClient->_recvChunkBuf;
-    Container_t* curContainer = &outClient->_curContainer;
-    SSL* clientSSL = outClient->_clientSSL;
+    string edgeIP;
+    UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX;
+    SendMsgBuffer_t* recvChunkBuf = &outEdge->_recvChunkBuf;
+    Container_t* curContainer = &outEdge->_curContainer;
+    SSL* edgeSSL = outEdge->_edgeSSL;
     
     struct timeval sProcTime;
     struct timeval eProcTime;
@@ -59,11 +59,11 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
     while (true) {
         // receive data 
-        if (!dataSecureChannel_->ReceiveData(clientSSL, recvChunkBuf->sendBuffer, 
+        if (!dataSecureChannel_->ReceiveData(edgeSSL, recvChunkBuf->sendBuffer, 
             recvSize)) {
-            tool::Logging(myName_.c_str(), "client closed socket connect, thread exit now.\n");
-            dataSecureChannel_->GetClientIp(clientIP, clientSSL);
-            dataSecureChannel_->ClearAcceptedClientSd(clientSSL);
+            tool::Logging(myName_.c_str(), "edge closed socket connect, thread exit now.\n");
+            dataSecureChannel_->GetEdgeIp(edgeIP, edgeSSL);
+            dataSecureChannel_->ClearAcceptedEdgeSd(edgeSSL);
             break;
         } else {
             gettimeofday(&sProcTime, NULL);
@@ -78,12 +78,12 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
                     absIndexObj_->ProcessTailBatch(upOutSGX);
                     // finalize the file recipe
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
-                        outClient->_recipeWriteHandler);
+                        outEdge->_recipeWriteHandler);
                     recipeEndNum_++;
 
                     // update the upload data size
                     FileRecipeHead_t* tmpRecipeHead = (FileRecipeHead_t*)recvChunkBuf->dataBuffer;
-                    outClient->_uploadDataSize = tmpRecipeHead->fileSize;
+                    outEdge->_uploadDataSize = tmpRecipeHead->fileSize;
                     break;
                 }
                 default: {
@@ -99,11 +99,11 @@ void DataReceiver::Run(ClientVar* outClient, EnclaveInfo_t* enclaveInfo) {
 
     // process the last container 
     if (curContainer->currentSize != 0) {
-        Ocall_WriteContainer(outClient);
+        Ocall_WriteContainer(outEdge);
     }
-    outClient->_inputMQ->done_ = true;
+    outEdge->_inputMQ->done_ = true;
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
-        clientIP.c_str(), outClient->_clientID, totalProcessTime);
+        edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 
     enclaveInfo->enclaveProcessTime = totalProcessTime;
     Ecall_GetEnclaveInfo(eidSGX_, enclaveInfo);
