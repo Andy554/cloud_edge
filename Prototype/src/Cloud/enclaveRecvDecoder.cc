@@ -49,8 +49,6 @@ void EnclaveRecvDecoder::Run(ClientVar* outClient) {
     SendMsgBuffer_t* sendChunkBuf = &outClient->_sendChunkBuf;
     uint32_t recvSize = 0;
 
-    
-
     if (!dataSecureChannel_->ReceiveData(clientSSL, sendChunkBuf->sendBuffer,
         recvSize)) {
         tool::Logging(myName_.c_str(), "recv the client ready error.\n");
@@ -68,21 +66,18 @@ void EnclaveRecvDecoder::Run(ClientVar* outClient) {
     tool::Logging(myName_.c_str(), "start to read the file recipe.\n");
     gettimeofday(&sProcTime, NULL);
     bool end = false;
-    tool::Logging(myName_.c_str(), "sendRecipeBatchSize: %lu.\n", sendRecipeBatchSize_);
     while (!end) {
         // read a batch of the recipe entries from the recipe file
         outClient->_recipeReadHandler.read((char*)readRecipeBuf, 
-            CHUNK_HASH_SIZE * sendRecipeBatchSize_);
+            sizeof(RecipeEntry_t) * sendRecipeBatchSize_);
         size_t readCnt = outClient->_recipeReadHandler.gcount();
         end = outClient->_recipeReadHandler.eof();
-        size_t recipeEntryNum = readCnt / CHUNK_HASH_SIZE;
-        
+        size_t recipeEntryNum = readCnt / sizeof(RecipeEntry_t);
         if (readCnt == 0) {
             break;
         }
 
         totalRestoreRecipeNum_ += recipeEntryNum;
-        tool::Logging(myName_.c_str(), "recipe entry num: %lu, ready to restore a batch.\n", recipeEntryNum);
         Ecall_ProcRecipeBatch(eidSGX_, readRecipeBuf, recipeEntryNum, 
             resOutSGX);
     }
@@ -145,8 +140,6 @@ void EnclaveRecvDecoder::GetReqContainers(ClientVar* outClient) {
         containerIn.seekg(0, ios_base::end);
         int readSize = containerIn.tellg();
         containerIn.seekg(0, ios_base::beg);
-
-        tool::Logging(myName_.c_str(), "container size: %d\n", readSize);
 
         // read the metadata section
         int containerSize = 0;

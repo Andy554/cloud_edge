@@ -105,11 +105,11 @@ typedef struct {
     double compTime;
     double encTime;
 #endif
-} EnclaveInfo_t;
+} EnclaveInfo_t, CloudInfo_t;
 
 typedef struct {
     int messageType;
-    uint32_t clientID;
+    uint32_t clientID; //client端、edge端复用
     uint32_t dataSize;
     uint32_t currentItemNum;
 } NetworkHead_t;

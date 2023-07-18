@@ -34,7 +34,7 @@ sgx_launch_token_t tokenSGX = {0};
 sgx_status_t statusSGX;
 int updateSGX;
 
-Configure config("config.json");
+Configure config("config-cloud.json");
 string myName = "DEBECloud";
 
 SSLConnection* dataSecurityChannelObj;
