@@ -31,7 +31,7 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
     storageCoreObj_ = new StorageCore();
     absIndexObj_ = new EnclaveIndex(fp2ChunkDB_, indexType_, eidSGX_);
     absIndexObj_->SetStorageCoreObj(storageCoreObj_);
-    dataReceiverObj_ = new DataReceiver(absIndexObj_, dataSecureChannel_, eidSGX_);
+    dataReceiverObj_ = new DataReceiver(absIndexObj_, dataSecureChannel_);
     dataReceiverObj_->SetStorageCoreObj(storageCoreObj_);
 
     // init the restore
@@ -200,9 +200,9 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             tool::Logging(myName_.c_str(), "recv the upload request from edge: %u\n",
                 edgeID);
             outEdge = new EdgeVar(edgeID, edgeSSL, UPLOAD_OPT, upRecipePath);
-            Ecall_Init_Client(eidSGX_, edgeID, indexType_, UPLOAD_OPT, 
-                recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
-                &outEdge->_upOutSGX.sgxClient);
+            // Ecall_Init_Client(eidSGX_, edgeID, indexType_, UPLOAD_OPT, 
+            //     recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
+            //     &outEdge->_upOutSGX.sgxClient);
 
             thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
                 outEdge, &cloudInfo));
@@ -227,9 +227,10 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             tool::Logging(myName_.c_str(), "recv the restore request from client: %u\n",
                 edgeID);
             outEdge = new EdgeVar(edgeID, edgeSSL, DOWNLOAD_OPT, upRecipePath);
-            Ecall_Init_Client(eidSGX_, edgeID, indexType_, DOWNLOAD_OPT, 
-                recvBuf.dataBuffer + CHUNK_HASH_SIZE,
-                &outEdge->_resOutSGX.sgxClient);
+            // Ecall_Init_Client(eidSGX_, edgeID, indexType_, DOWNLOAD_OPT, 
+            //     recvBuf.dataBuffer + CHUNK_HASH_SIZE,
+            //     &outEdge->_resOutSGX.sgxClient);
+            // TODO: Ecall_Init_Client
 
             thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
                 outEdge));
@@ -268,14 +269,14 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     thList.clear();
     
     // clean up client variables 
-    // TODO: 对象的销毁
+    // TODO: Ecall_Destroy_Client
     switch (optType) {
         case UPLOAD_OPT: {
-            Ecall_Destroy_Client(eidSGX_, outEdge->_upOutSGX.sgxClient);
+            // Ecall_Destroy_Client(eidSGX_, outEdge->_upOutSGX.sgxClient);
             break;
         }
         case DOWNLOAD_OPT: {
-            Ecall_Destroy_Client(eidSGX_, outEdge->_resOutSGX.sgxClient);
+            // Ecall_Destroy_Client(eidSGX_, outEdge->_resOutSGX.sgxClient);
             break;
         }
         default: {
@@ -287,7 +288,6 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     // print the info
     double speed = static_cast<double>(outEdge->_uploadDataSize) / 1024.0 / 1024.0 
         / cloudInfo.enclaveProcessTime;
-    //TODO: 处理情况的输出
     if (optType == UPLOAD_OPT) { 
         logFile_ << cloudInfo.logicalDataSize << ", " 
             << cloudInfo.logicalChunkNum << ", "
@@ -298,7 +298,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             << to_string(speed) << endl;
         logFile_.flush();
     }
-    delete outEdge; //TODO: 对象的销毁
+    delete outEdge; 
     free(recvBuf.sendBuffer);
     tmpLock->unlock();
 

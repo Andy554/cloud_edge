@@ -70,7 +70,7 @@
 - `ProcessOneBatch()` ：分别调用了[storeECall](Prototype/src/Enclave/ecallSrc/ecall/storeECall.cc)库的函数`Ecall_ProcChunkBatch()`、[storeOCall](Prototype/src/Enclave/ocallSrc/storeOCall.cc)库的函数`Ocall_UpdateOutIndex()`
 
 [storeECall](Prototype/src/Enclave/ecallSrc/ecall/storeECall.cc)
-- `enclaveBaseObj_`：声明了[EnclaveBase](Enclave/ecallSrc/ecallIndex/enclaveBase.cc)类的对象指针，全局共享于多个文件
+- `enclaveBaseObj_`：声明了[EnclaveBase](Prototype/src/Enclave/ecallSrc/ecallIndex/enclaveBase.cc)类的对象指针，全局共享于多个文件
 - `Ecall_Init_Upload()`：根据`indexType`创建对应的EcallXXXindex类（e.g. `EcallFreqIndex`、`EcallExtremeBinIndex`）的对象，并将其地址赋值给`enclaveBaseObj_`
 - `Ecall_ProcChunkBatch()`：调用`enclaveBaseObj_->ProcessOneBatch()`。（若`enclaveBaseObj_`由`EcallFreqIndex`类实现，则会调用`EcallFreqIndex::ProcessOneBatch()`）
 

@@ -28,6 +28,20 @@ DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChann
 }
 
 /**
+ * @brief Construct a new DataReceiver object
+ * 
+ * @param absIndexObj the pointer to the index obj
+ * @param dataSecurity the pointer to the security channel
+ * @param eidSGX the sgx id
+ */
+DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel) {
+    // set up the connection and interface
+    dataSecureChannel_ = dataSecureChannel;
+    absIndexObj_ = absIndexObj;
+    tool::Logging(myName_.c_str(), "init the DataReceiver.\n");
+}
+
+/**
  * @brief Destroy the DataReceiver object
  * 
  */
@@ -42,9 +56,9 @@ DataReceiver::~DataReceiver() {
  * @brief the main process to handle new edge upload-request connection
  * 
  * @param outEdge the out-enclave edge ptr
- * @param enclaveInfo the pointer to the enclave info
+ * @param cloudinfo the pointer to the enclave info
  */
-void DataReceiver::Run(EdgeVar* outEdge, EnclaveInfo_t* enclaveInfo) {
+void DataReceiver::Run(EdgeVar* outEdge, EnclaveInfo_t* cloudinfo) {
     uint32_t recvSize = 0;
     string edgeIP;
     UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX;
@@ -105,7 +119,7 @@ void DataReceiver::Run(EdgeVar* outEdge, EnclaveInfo_t* enclaveInfo) {
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
         edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 
-    enclaveInfo->enclaveProcessTime = totalProcessTime;
-    Ecall_GetEnclaveInfo(eidSGX_, enclaveInfo);
+    cloudinfo->enclaveProcessTime = totalProcessTime;
+    Ecall_GetEnclaveInfo(eidSGX_, cloudinfo);
     return ;
 }
