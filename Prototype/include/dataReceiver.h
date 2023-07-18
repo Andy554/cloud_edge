@@ -46,6 +46,14 @@ class DataReceiver {
         DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel, sgx_enclave_id_t eidSGX);
 
         /**
+         * @brief Construct a new DataReceiver object
+         * 
+         * @param absIndexObj the pointer to the index obj
+         * @param dataSecurity the pointer to the security channel
+         */
+        DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel);
+
+        /**
          * @brief Destroy the DataReceiver object
          * 
          */
