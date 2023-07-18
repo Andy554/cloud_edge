@@ -104,7 +104,8 @@ void CloudOptThread::Run(SSL* clientSSL) {
     EnclaveInfo_t enclaveInfo;
 
     SendMsgBuffer_t recvBuf;
-    recvBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + SESSION_KEY_BUFFER_SIZE);
+    recvBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
+        CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t)); //why?
     recvBuf.header = (NetworkHead_t*) recvBuf.sendBuffer;
     recvBuf.header->dataSize = 0;
     recvBuf.dataBuffer = recvBuf.sendBuffer + sizeof(NetworkHead_t);
@@ -218,11 +219,11 @@ void CloudOptThread::Run(SSL* clientSSL) {
     // ---- the main process ----
     int optType = 0;
     switch (recvBuf.header->messageType) {
-        case CLIENT_LOGIN_UPLOAD: {
+        case EDGE_LOGIN_UPLOAD: {
             optType = UPLOAD_OPT;
             break;
         }
-        case CLIENT_LOGIN_DOWNLOAD: {
+        case EDGE_LOGIN_DOWNLOAD: {
             optType = DOWNLOAD_OPT;
             break;
         }
