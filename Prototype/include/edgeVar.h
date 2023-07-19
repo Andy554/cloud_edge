@@ -87,7 +87,7 @@ class EdgeVar{
 
         SSL* _edgeSSL; // connection
 
-        uint64_t _uploadChunkNum; 
+        uint64_t _uploadChunkNum = 0; 
         // upload logical data size
         uint64_t _uploadDataSize = 0;
 

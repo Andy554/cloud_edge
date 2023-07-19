@@ -156,8 +156,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
 
     // check the file status
     // convert the file name hash to the file path
-    uint64_t chunkNum = 0;
-
+    
     char fileHashBuf[CHUNK_HASH_SIZE * 2 + 1];
     for (uint32_t i = 0; i < CHUNK_HASH_SIZE; i++) {
         sprintf(fileHashBuf + i * 2, "%02x", recvBuf.dataBuffer[i]);
@@ -192,8 +191,8 @@ void CloudOptThread::Run(SSL* edgeSSL) {
         tool::Logging(myName_.c_str(), "file status check successfully.\n");
     }
     /// check done
-    
-    // init the vars for this client
+
+    // init the vars for this edge
     EdgeVar* outEdge;
     switch (optType) {
         case UPLOAD_OPT: {
@@ -205,6 +204,17 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             // Ecall_Init_Client(eidSGX_, edgeID, indexType_, UPLOAD_OPT, 
             //     recvBuf.dataBuffer + CHUNK_HASH_SIZE, 
             //     &outEdge->_upOutSGX.sgxClient);
+
+            // EDGE_LOGIN_UPLOAD 首先会上传一次 file recipe
+            if(recvBuf.header->dataSize == CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t)) {
+                FileRecipeHead_t* fileRecipeHead = recvBuf.dataBuffer + CHUNK_HASH_SIZE; // 通过 recvBuf free，所以实际释放该指针是设为 NULL
+                tool::Logging(myName_.c_str(), "find file recipe head. file size : %llu, total chunk num : %llu\n", fileRecipeHead->fileSize, fileRecipeHead->totalChunkNum);
+                outEdge->_uploadChunkNum = fileRecipeHead->totalChunkNum;
+                fileRecipeHead = NULL;
+            } else { // read FileRecipeHead_t 失败
+                tool::Logging(myName_.c_str(), "clouldn't find file recipe head.\n");
+                exit(EXIT_FAILURE);
+            }
 
             thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
                 outEdge, &cloudInfo));

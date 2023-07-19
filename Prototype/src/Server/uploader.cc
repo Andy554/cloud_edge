@@ -2,7 +2,7 @@
 
 Uploader::Uploader(SSLConnection* dataSecureChannel){
     // set up the configuration
-    edgeID_ = config.GetClientID();
+    edgeID_ = config.GetEdgeID();
     sendChunkBatchSize_ = config.GetSendChunkBatchSize();
     sendRecipeBatchSize_ = config.GetSendRecipeBatchSize();
     dataSecureChannel_ = dataSecureChannel;

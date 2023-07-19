@@ -55,6 +55,7 @@ void Configure::ReadConf(std::string path) {
     readCacheSize_ = root.get<uint64_t>("RestoreWriter.readCacheSize_");
 
     // for storage server 
+    edgeID_ = root.get<uint32_t>("DataSender.edgeID_");
     storageServerIp_ = root.get<std::string>("DataSender.storageServerIp_");
     storageServerPort_ = root.get<int>("DataSender.storageServerPort_");
 

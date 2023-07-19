@@ -41,6 +41,7 @@ private:
     uint64_t readCacheSize_;
     
     // for Server storage ip
+    string edgeID_;
     string storageServerIp_;
     int storageServerPort_;
 
@@ -155,12 +156,20 @@ public:
         return storageCloudPort_;
     }
 
+    inline uint32_t GetCloudID() {
+        return cloudID_;
+    }
+
     inline string GetStorageServerIP() {
         return storageServerIp_;
     }
     
     inline int GetStoragePort() {
         return storageServerPort_;
+    }
+
+    inline uint32_t GetEdgeID() {
+        return edgeID_;
     }
 
     inline uint32_t GetClientID() {
