@@ -55,6 +55,18 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     double totalProcessTime = 0;
 
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
+
+    // 查询 FP 是否存在结果的 message，除了 bool 结果，都是可以复用的
+    SendMsgBuffer_t FpBoolBuf;
+    FpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
+    outEdge->sendChunkBatchSize_ * sizeof(bool)); // 先用 chunk 批处理大小
+    FpBoolBuf.header = (NetworkHead_t*) FpBoolBuf.sendBuffer;
+    FpBoolBuf.header->clientID = edgeID_;
+    FpBoolBuf.header->dataSize = outEdge->sendChunkBatchSize_; // 数据大小就是批处理 FP 数量
+    FpBoolBuf.dataBuffer = FpBoolBuf.sendBuffer + sizeof(NetworkHead_t);
+    FpBoolBuf.header->messageType = CLOUD_FP_RESPONSE;
+    // 修改 FP bool 结果，由 absIndexObj_->ProcessFpOneBatch 完成
+
     bool end = false;
     while (!end) {
         // receive fp 
@@ -69,29 +81,21 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             switch (recvFpBuf->header->messageType) { // recvFpBuf->header->messageType
                 case EDGE_UPLOAD_FP: {// 新增，服务器上传指纹，我们先返回指纹是否存在，然后才上传 chunk
                     // TODO:每处理一个fp batch，就将bool数组发给edge
-                    absIndexObj_->ProcessFpOneBatch(recvFpBuf, upOutSGX); 
+                    // ? 每次处理完就发回 edge，是否不必区分 FP_END
+                    tool::Logging(myName_.c_str(), "start to process fp one batch...\n");
+                    absIndexObj_->ProcessFpOneBatch(recvFpBuf, upOutSGX);
+                    // 类似 Client/dataSender.cc -> ProcessRecipeEnd() or SendChunks()
+                    // 前者不加密；后者加密；当前不加密
+                    if (!dataSecureChannel_->SendData(edgeSSL, FpBoolBuf.sendBuffer, sizeof(NetworkHead_t) + FpBoolBuf.header->dataSize)) {
+                        tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
+                        exit(EXIT_FAILURE);
+                    }
                     break;
                 }
                 case EDGE_UPLOAD_FP_END: {// 服务器上传最后一批指纹
                     // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge
+                    tool::Logging(myName_.c_str(), "start to process fp tail batch...\n");
                     absIndexObj_->ProcessFpTailBatch(upOutSGX); 
-                    /*
-                    SendMsgBuffer_t FpBoolBuf;
-                    FpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
-                    FpNum );
-                    msgBuf.header = (NetworkHead_t*) msgBuf.sendBuffer;
-                    msgBuf.header->clientID = edgeID_;
-                    msgBuf.header->dataSize = 0;
-                    msgBuf.dataBuffer = msgBuf.sendBuffer + sizeof(NetworkHead_t);
-                    msgBuf.header->messageType = EDGE_LOGIN_UPLOAD;
-
-
-                    if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer,
-                        sizeof(NetworkHead_t))) {
-                        tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    */
                     end = true;
                     break;
                 }
@@ -118,6 +122,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             gettimeofday(&sProcTime, NULL);
             switch (recvChunkBuf->header->messageType) { // recvFpBuf->header->messageType
                 case EDGE_UPLOAD_CHUNK: {
+                    tool::Logging(myName_.c_str(), "start to process chunk one batch...\n");
                     absIndexObj_->ProcessOneBatch(recvChunkBuf, upOutSGX); // ? chunk 存 recvChunkBuf
                     batchNum_++;
                     break;
@@ -129,6 +134,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
                         outEdge->_recipeWriteHandler); // 写入 file recipe 信息 fileSize and totalChunkNum
                     recipeEndNum_++;
+                    tool::Logging(myName_.c_str(), "finish process chunk tail batch...====================\n");
 
                     // update the upload data size
                     FileRecipeHead_t* tmpRecipeHead = (FileRecipeHead_t*)recvChunkBuf->dataBuffer;
@@ -148,7 +154,9 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
 
     // process the last container 
     if (curContainer->currentSize != 0) {
+        tool::Logging(myName_.c_str(), "start to write last container\n"); 
         Ocall_WriteContainer(outEdge);
+        tool::Logging(myName_.c_str(), "write last container success\n");
     }
     outEdge->_inputMQ->done_ = true; 
     */
