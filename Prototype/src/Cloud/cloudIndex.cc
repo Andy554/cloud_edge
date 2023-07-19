@@ -96,38 +96,32 @@ void CloudIndex::UpdateFileRecipe(string &chunkAddrStr, Recipe_t* inRecipe,
  * @param recvFpBuf the recv Fp buffer
  * @param upOutSGX the structure to store the enclave related variable
  */
-void CloudIndex::ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf, 
-    UpOutSGX_t* upOutSGX) {
-    // sendBuffer = header + fpBuffer
-    uint8_t* recvBuffer = recvFpBuf->fpBuffer; // data 从 fp 直接开始读，不需要考虑 header 的偏移
-    // get the fp num 当前批次 fp num 
+void CloudIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
+    uint8_t* fpBuffer = recvFpBuf->dataBuffer;
     uint32_t fpNum = recvFpBuf->header->currentItemNum;
-
-    // start to process each fp
     string tmpFpStr; // 存放每个读出的 Fp
-    tmpFpStr.resize(CHUNK_HASH_SIZE, 0); //? 不直接用 uint8_t*，是为了避免 free 吗；还是因为 db 的 key/value 都是 string? Prototype/src/Database/leveldbDatabase.cc
+    tmpFpStr.resize(CHUNK_HASH_SIZE, 0);
     string tmpChunkAddressStr; // 读入 tmpFpStr 已有的 Container ID / Address
     tmpChunkAddressStr.resize(CONTAINER_ID_LENGTH, 0);
-    size_t currentOffset = 0; // 这里 buffer 从 fpBuffer 开始，不需要考虑 header 的偏移
+    uint32_t currentOffset = 0; // 这里 buffer 从 fpBuffer 开始，不需要考虑 header 的偏移
     uint32_t tmpChunkSize = 0;
-
-    // 读 fp -> recvBuffer
-    for (size_t i = 0; i < fpNum; i++) {
-        // compute the hash over the plaintext chunk
-        // get tmpFpStr from buffer
-        memcpy((uint8_t*)&tmpFpStr[0], recvBuffer + currentOffset, CHUNK_HASH_SIZE);
-        currentOffset += CHUNK_HASH_SIZE;
-
+    uint8_t* fpBoolBuf = sendFpBoolBuf->dataBuffer;
+    sendFpBoolBuf->header->currentItemNum = fpNum;
+    sendFpBoolBuf->header->dataSize = fpNum;
+    
+    for (uint32_t i = 0; i < fpNum; i++) {
+        memcpy((uint8_t*)&tmpFpStr[0], fpBuffer + currentOffset, CHUNK_HASH_SIZE);
+        memcpy((uint8_t*)fp2CidArr[fpCurNum].chunkFp, fpBuffer + currentOffset, CHUNK_HASH_SIZE);
         if(!indexStore_.Query(tmpFpStr, tmpChunkAddressStr)) { // 非重复块
-            // 存起来，发给 Edge，等得到 chunk 的时候，再插入fp2chunk数据库 Insert(fp, containerID)
-            // TODO 消息队列的处理，得模仿 client
-            MQ.push(tmpFpStr); //? 先存入 MessageQueue
+            fpBoolBuf[i] = 1;
+            memcpy((uint8_t*)fp2CidArr[fpCurNum].containerID, (uint8_t*)&tmpChunkAddressStr[0], CONTAINER_ID_LENGTH);
         } else { // 重复块
             // 直接得到对应 Containder ID，存在 tmpChunkAddressStr
+            fpBoolBuf[i] = 0;
         }
-
-        // TODO Fp 存入 file recipe
-        this->UpdateFileRecipe(tmpChunkAddressStr, inRecipe, upOutSGX);
+        fpCurNum++;
+        currentOffset += CHUNK_HASH_SIZE;
     }
     return ;   
 }
@@ -137,29 +131,9 @@ void CloudIndex::ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf,
  * 收到结束信号的时候，写完
  * @param upOutSGX the pointer to enclave-related var
  */
-void CloudIndex::ProcessFpTailBatch(UpOutSGX_t* upOutSGX) {
-    // the in-enclave info
-    EnclaveClient* sgxClient = (EnclaveClient*)upOutSGX->sgxClient;
-    Recipe_t* inRecipe = &sgxClient->_inRecipe;
-    EVP_CIPHER_CTX* cipherCtx = sgxClient->_cipherCtx;
-    uint8_t* masterKey = sgxClient->_masterKey;
-
-    if (inRecipe->recipeNum != 0) {
-        // the out-enclave info
-        Recipe_t* outRecipe = (Recipe_t*)upOutSGX->outRecipe;
-        cryptoObj_->EncryptWithKey(cipherCtx, inRecipe->entryList,
-            inRecipe->recipeNum * CONTAINER_ID_LENGTH, masterKey, 
-            outRecipe->entryList);
-        outRecipe->recipeNum = inRecipe->recipeNum;
-        Ocall_UpdateFileRecipe(upOutSGX->outClient);
-        inRecipe->recipeNum = 0;
-    }
-
-    if (sgxClient->_inContainer.curSize != 0) {
-        memcpy(upOutSGX->curContainer->body, sgxClient->_inContainer.buf,
-            sgxClient->_inContainer.curSize);
-        upOutSGX->curContainer->currentSize = sgxClient->_inContainer.curSize;
-    }
+void CloudIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
+    ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, fp2CidArr, fpCurNum);
     return ;
 }
 
