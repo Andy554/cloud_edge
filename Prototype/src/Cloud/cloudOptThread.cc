@@ -219,11 +219,13 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
                 outEdge, &cloudInfo));
             thList.push_back(thTmp); 
+/*
 #if (MULTI_CLIENT == 0)
             thTmp = new boost::thread(attrs, boost::bind(&DataWriter::Run, dataWriterObj_,
                 outEdge->_inputMQ));
             thList.push_back(thTmp);
 #endif
+*/
             // send the upload-response to the cloud
             recvBuf.header->messageType = CLOUD_LOGIN_RESPONSE;
             if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer, 

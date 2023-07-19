@@ -16,10 +16,10 @@
 
 #include "absIndex.h"
 
-#include "sgx_urts.h"
-#include "sgx_capable.h"
+// #include "sgx_urts.h"
+// #include "sgx_capable.h"
 #include "../src/Enclave/include/storeOCall.h"
-#include "../build/src/Enclave/storeEnclave_u.h"
+// #include "../build/src/Enclave/storeEnclave_u.h"
 
 class CloudIndex : public AbsIndex {
     private:
