@@ -68,14 +68,14 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             gettimeofday(&sProcTime, NULL);
             switch (recvFpBuf->header->messageType) { // recvFpBuf->header->messageType
                 case EDGE_UPLOAD_FP: {// 新增，服务器上传指纹，我们先返回指纹是否存在，然后才上传 chunk
-                    // TODO:处理一个fp batch
+                    // TODO:每处理一个fp batch，就将bool数组发给edge
                     absIndexObj_->ProcessFpOneBatch(recvFpBuf, upOutSGX); 
                     break;
                 }
                 case EDGE_UPLOAD_FP_END: {// 服务器上传最后一批指纹
-                    // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge，同时还要考虑FileRecipe的写入
+                    // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge
                     absIndexObj_->ProcessFpTailBatch(upOutSGX); 
-
+                    /*
                     SendMsgBuffer_t FpBoolBuf;
                     FpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
                     FpNum );
@@ -91,6 +91,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                         tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
                         exit(EXIT_FAILURE);
                     }
+                    */
                     end = true;
                     break;
                 }
