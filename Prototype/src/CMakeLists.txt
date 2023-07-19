@@ -1,15 +1,15 @@
-# ½øĞĞÁËÒ»ÏµÁĞµÄÅäÖÃºÍÉèÖÃ£¬°üÀ¨²éÕÒºÍ°üº¬Íâ²¿¿â¡¢ÉèÖÃÁ´½ÓÄ¿Â¼¡¢ÉèÖÃ¿â¶ÔÏóµÈ¡£
-# È»ºóÊ¹ÓÃ add_subdirectory Ìí¼ÓÁËÒ»Ğ©×ÓÄ¿Â¼½øĞĞ¹¹½¨£¬Ã¿¸ö×ÓÄ¿Â¼¿ÉÄÜ°üº¬²»Í¬µÄÔ´´úÂëºÍ¹¹½¨¹æÔò¡£
-# ÕâÑù¿ÉÒÔÊµÏÖ·ÖÄ£¿éµÄ¹¹½¨ºÍ¹ÜÀí£¬·½±ãµØ½«²»Í¬²¿·ÖµÄ´úÂë×éÖ¯ÔÚÒ»Æğ²¢½øĞĞ±àÒë¡£
+# è¿›è¡Œäº†ä¸€ç³»åˆ—çš„é…ç½®å’Œè®¾ç½®ï¼ŒåŒ…æ‹¬æŸ¥æ‰¾å’ŒåŒ…å«å¤–éƒ¨åº“ã€è®¾ç½®é“¾æ¥ç›®å½•ã€è®¾ç½®åº“å¯¹è±¡ç­‰ã€‚
+# ç„¶åä½¿ç”¨ add_subdirectory æ·»åŠ äº†ä¸€äº›å­ç›®å½•è¿›è¡Œæ„å»ºï¼Œæ¯ä¸ªå­ç›®å½•å¯èƒ½åŒ…å«ä¸åŒçš„æºä»£ç å’Œæ„å»ºè§„åˆ™ã€‚
+# è¿™æ ·å¯ä»¥å®ç°åˆ†æ¨¡å—çš„æ„å»ºå’Œç®¡ç†ï¼Œæ–¹ä¾¿åœ°å°†ä¸åŒéƒ¨åˆ†çš„ä»£ç ç»„ç»‡åœ¨ä¸€èµ·å¹¶è¿›è¡Œç¼–è¯‘ã€‚
 
 find_package(SGX REQUIRED)
 find_package(Boost 1.36.0 REQUIRED COMPONENTS thread system serialization)
 find_package(LevelDB REQUIRED)
 find_package(OpenSSL REQUIRED)
-set(SGX_SIM_LIB_PATH /opt/intel/sgxsdk/lib64) # ÉèÖÃ SGX Ä£Äâ¿âµÄÂ·¾¶
+set(SGX_SIM_LIB_PATH /opt/intel/sgxsdk/lib64) # è®¾ç½® SGX æ¨¡æ‹Ÿåº“çš„è·¯å¾„
 
-# Ö¸¶¨ SGX ¿ª·¢ÖĞ£¬Í¨³£ÓĞÒ»Ğ©±ØĞëÁ´½ÓµÄ¿â
-if(NOT SGX_HW) # ¶¨ÒåÓÚ Prototype/CMakeLists.txt
+# æŒ‡å®š SGX å¼€å‘ä¸­ï¼Œé€šå¸¸æœ‰ä¸€äº›å¿…é¡»é“¾æ¥çš„åº“
+if(NOT SGX_HW) # å®šä¹‰äº Prototype/CMakeLists.txt
     message(STATUS "Using Simulation Mode, SGX_HW: ${SGX_HW}")
     link_directories(${SGX_SIM_LIB_PATH})
     set(SGX_UNTRUST_MUST_LINK sgx_urts_sim sgx_uae_service_sim sgx_capable)
@@ -17,14 +17,14 @@ else()
     set(SGX_UNTRUST_MUST_LINK sgx_urts sgx_uae_service sgx_capable)
 endif()
 
-if(Boost_FOUND) # find_package() ·µ»ØÖµ
-    include_directories(${Boost_INCLUDE_DIRS}) # Ö¸¶¨±àÒëÆ÷ÔÚ±àÒëÊ±²éÕÒÍ·ÎÄ¼şµÄÄ¿Â¼
-    link_directories(${Boost_LIBRARY_DIRS}) # Ö¸¶¨Á´½ÓÆ÷ÔÚÁ´½ÓÊ±²éÕÒ¿âÎÄ¼şµÄÄ¿Â¼
+if(Boost_FOUND) # find_package() è¿”å›å€¼
+    include_directories(${Boost_INCLUDE_DIRS}) # æŒ‡å®šç¼–è¯‘å™¨åœ¨ç¼–è¯‘æ—¶æŸ¥æ‰¾å¤´æ–‡ä»¶çš„ç›®å½•
+    link_directories(${Boost_LIBRARY_DIRS}) # æŒ‡å®šé“¾æ¥å™¨åœ¨é“¾æ¥æ—¶æŸ¥æ‰¾åº“æ–‡ä»¶çš„ç›®å½•
 else()
     message(FATAL_ERROR "Cannot find boost library")
 endif()
 
-# TODO Ìõ¼ş±àÒë RocksDB
+# TODO æ¡ä»¶ç¼–è¯‘ RocksDB
 if(LevelDB_FOUND)
     include_directories(${LevelDB_INCLUDES})
     link_directories(${LevelDB_LIBRARIES})
@@ -33,7 +33,7 @@ else()
 endif()
 message(STATUS "Find LevelDB version: ${LEVELDB_VERSION}")
 
-if(OPENSSL_FOUND) # ÒÑÍ¨¹ıÆäËû·½Ê½°üº¬ºÍÁ´½Ó OpenSSL ¿â£¿
+if(OPENSSL_FOUND) # å·²é€šè¿‡å…¶ä»–æ–¹å¼åŒ…å«å’Œé“¾æ¥ OpenSSL åº“ï¼Ÿ
     # include_directories(${OPENSSL_INCLUDE_DIR})
     # link_directories(${OPENSSL_LIBRARIES})
 else()
@@ -60,7 +60,7 @@ set(THIRD_OBJ ${OPENSSL_LIBRARY_OBJ} leveldb ${BOOST_LIBRARY_OBJ} ${SYSTEM_LIBRA
 set(INSIDE_OBJ UtilCore DatabaseCore IndexCore CommCore IASCore ClientCore ServerCore CloudCore)
 set(FINAL_OBJ ${THIRD_OBJ} EnclaveCore ${INSIDE_OBJ})
 
-# Ìí¼Ó×ÓÄ¿Â¼½øĞĞ¹¹½¨
+# æ·»åŠ å­ç›®å½•è¿›è¡Œæ„å»º
 add_subdirectory(App)
 add_subdirectory(Client)
 add_subdirectory(Util)
