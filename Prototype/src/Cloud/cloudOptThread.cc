@@ -207,7 +207,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
 
             // EDGE_LOGIN_UPLOAD 首先会上传一次 file recipe
             if(recvBuf.header->dataSize == CHUNK_HASH_SIZE + sizeof(FileRecipeHead_t)) {
-                FileRecipeHead_t* fileRecipeHead = recvBuf.dataBuffer + CHUNK_HASH_SIZE; // 通过 recvBuf free，所以实际释放该指针是设为 NULL
+                FileRecipeHead_t* fileRecipeHead = (FileRecipeHead_t*)(recvBuf.dataBuffer + CHUNK_HASH_SIZE); // 通过 recvBuf free，所以实际释放该指针是设为 NULL
                 tool::Logging(myName_.c_str(), "find file recipe head. file size : %llu, total chunk num : %llu\n", fileRecipeHead->fileSize, fileRecipeHead->totalChunkNum);
                 outEdge->_uploadChunkNum = fileRecipeHead->totalChunkNum;
                 fileRecipeHead = NULL;

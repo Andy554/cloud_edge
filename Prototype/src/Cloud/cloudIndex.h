@@ -44,15 +44,24 @@ class CloudIndex : public AbsIndex {
 
         /**
          * @brief process FingerPrint one batch 
-         * 接受来自 Edge 的 FpBuf，一个个检查 Fp 是否是重复块指纹，将非重复块的指纹，打包到MessageQueue，
-         * 通过 SendBuf 发送给 edge。
-         * 同时将 Fp2Chunk 记录为 fileRecipe
+         * 接受来自 Edge 的 FpBuf，一个个检查 Fp 是否是重复块指纹，将查询结果放入sendFpBoolBuf，
+         * 通过 sendFpBoolBuf 发送给 edge。
          * @param recvFpBuf the recv Fp buffer
          * @param sendFpBoolBuf the send Fp bool buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf, SendFpBuffer_t* sendFpBoolBuf, UpOutSGX_t* upOutSGX);
+        void CloudIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum)
 
+        /**
+         * @brief process FingerPrint one batch 
+         * 处理最后一批来自 Edge 的 FpBuf
+         * @param recvFpBuf the recv Fp buffer
+         * @param sendFpBoolBuf the send Fp bool buffer
+         * @param upOutSGX the structure to store the enclave related variable
+         */
+        void CloudIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) 
 
 
         /**
