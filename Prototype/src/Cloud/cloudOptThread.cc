@@ -254,6 +254,8 @@ void CloudOptThread::Run(SSL* edgeSSL) {
         }
     }
 
+    struct timeval sTime;
+    struct timeval eTime;
     double totalTime = 0;
     gettimeofday(&sTime, NULL);
     for (auto it : thList) {
@@ -302,10 +304,8 @@ void CloudOptThread::Run(SSL* edgeSSL) {
     free(recvBuf.sendBuffer);
     tmpLock->unlock();
 
-    tool::Logging(myName_.c_str(), "total running time of client %u: %lf\n", 
+    tool::Logging(myName_.c_str(), "total running time of edge %u: %lf\n", 
         edgeID, totalTime);
-    tool::Logging(myName_.c_str(), "total key exchange time of client %u: %lf\n", 
-        edgeID, keyExchangeTime); 
 
     return ;
 }

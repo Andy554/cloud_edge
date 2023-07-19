@@ -16,6 +16,7 @@
 #include "dataWriter.h"
 #include "dataReceiver.h"
 #include "absIndex.h"
+#include "cloudIndex.h"
 #include "enclaveIndex.h"
 #include "uploader.h"
 
@@ -23,7 +24,7 @@
 #include "factoryDatabase.h"
 #include "absDatabase.h"
 #include "configure.h"
-#include "clientVar.h"
+#include "edgeVar.h"
 #include "raUtil.h"
 
 // for restore

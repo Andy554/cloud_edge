@@ -73,8 +73,24 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                     break;
                 }
                 case EDGE_UPLOAD_FP_END: {// 服务器上传最后一批指纹
-                    // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge
+                    // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge，同时还要考虑FileRecipe的写入
                     absIndexObj_->ProcessFpTailBatch(upOutSGX); 
+
+                    SendMsgBuffer_t FpBoolBuf;
+                    FpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
+                    FpNum );
+                    msgBuf.header = (NetworkHead_t*) msgBuf.sendBuffer;
+                    msgBuf.header->clientID = edgeID_;
+                    msgBuf.header->dataSize = 0;
+                    msgBuf.dataBuffer = msgBuf.sendBuffer + sizeof(NetworkHead_t);
+                    msgBuf.header->messageType = EDGE_LOGIN_UPLOAD;
+
+
+                    if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer,
+                        sizeof(NetworkHead_t))) {
+                        tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
+                        exit(EXIT_FAILURE);
+                    }
                     end = true;
                     break;
                 }
@@ -87,7 +103,8 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             gettimeofday(&eProcTime, NULL);
             totalProcessTime += tool::GetTimeDiff(sProcTime, eProcTime);
         }
-
+    }
+    /*
     while (true) {
         // receive data 
         if (!dataSecureChannel_->ReceiveData(edgeSSL, recvChunkBuf->sendBuffer, 
@@ -132,7 +149,8 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     if (curContainer->currentSize != 0) {
         Ocall_WriteContainer(outEdge);
     }
-    outEdge->_inputMQ->done_ = true;
+    outEdge->_inputMQ->done_ = true; 
+    */
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
         edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 
