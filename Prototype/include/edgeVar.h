@@ -71,7 +71,8 @@ class EdgeVar{
         Container_t _curContainer; // current container buffer
         OutQuery_t _outQuery; // the buffer to store the encrypted chunk fp
         MessageQueue<Container_t>* _inputMQ;
-        SendMsgBuffer_t _recvChunkBuf;
+        SendMsgBuffer_t _recvChunkBuf; 
+        SendMsgBuffer_t _recvFpBuf; 
         Recipe_t _outRecipe; // the buffer to store ciphertext recipe
         Recipe_t _outUpRecipe;
 
@@ -80,11 +81,13 @@ class EdgeVar{
         ReqContainer_t _reqContainer;
         ReadCache* _containerCache;
         SendMsgBuffer_t _sendChunkBuf;
+        SendMsgBuffer_t _sendFpBoolBuf; //发送给edge的Fp bool数组
         OutRestoreEntry_t* _outRestoreEntry;
         size_t recipeNum;
 
         SSL* _edgeSSL; // connection
 
+        uint64_t _uploadChunkNum; 
         // upload logical data size
         uint64_t _uploadDataSize = 0;
 

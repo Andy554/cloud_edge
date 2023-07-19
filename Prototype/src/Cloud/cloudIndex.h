@@ -9,11 +9,6 @@
  * 
  */
 
-typedef struct {
-    uint8_t chunkFp[CHUNK_HASH_SIZE];
-    char containerID[CONTAINER_ID_LENGTH]; // 我们在 container 里记录了 offset + length
-    // RecipeEntry_t address; // containerID + offset + length
-} FpIdx_t; // <- BinValue_t;
 
 /* Prototype/include/enclaveIndex.h */
 #ifndef ENCLAVE_SIMPLE_H
@@ -53,9 +48,12 @@ class CloudIndex : public AbsIndex {
          * 通过 SendBuf 发送给 edge。
          * 同时将 Fp2Chunk 记录为 fileRecipe
          * @param recvFpBuf the recv Fp buffer
+         * @param sendFpBoolBuf the send Fp bool buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf);
+        void ProcessFpOneBatch(SendFpBuffer_t* recvFpBuf, SendFpBuffer_t* sendFpBoolBuf, UpOutSGX_t* upOutSGX);
+
+
 
         /**
          * @brief process one batch 
@@ -63,14 +61,14 @@ class CloudIndex : public AbsIndex {
          * @param recvChunkBuf the recv chunk buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf, UpOutSGX_t* upOutSGX);
+        void ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf, UpOutSGX_t* upOutSGX){};
 
         /**
          * @brief process the tail segment
          * 
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessTailBatch(UpOutSGX_t* upOutSGX);
+        void ProcessTailBatch(UpOutSGX_t* upOutSGX){};
 };
 #endif
 

@@ -156,6 +156,8 @@ void CloudOptThread::Run(SSL* edgeSSL) {
 
     // check the file status
     // convert the file name hash to the file path
+    uint64_t chunkNum = 0;
+
     char fileHashBuf[CHUNK_HASH_SIZE * 2 + 1];
     for (uint32_t i = 0; i < CHUNK_HASH_SIZE; i++) {
         sprintf(fileHashBuf + i * 2, "%02x", recvBuf.dataBuffer[i]);

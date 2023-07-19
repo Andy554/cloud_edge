@@ -47,6 +47,8 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     string edgeIP;
     UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX; // 整理后传到 enclave，cloud 虽然没有 enclave，但是传入精简的结构体会不会减少开销
     SendMsgBuffer_t* recvChunkBuf = &outEdge->_recvChunkBuf;
+    SendMsgBuffer_t* recvFpBuf = &outEdge->_recvFpBuf;
+    SendMsgBuffer_t* sendFpBoolBuf = &outEdge->_sendFpBoolBuf;
     Container_t* curContainer = &outEdge->_curContainer;
     SSL* edgeSSL = outEdge->_edgeSSL;
     
@@ -57,21 +59,15 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
 
     // 查询 FP 是否存在结果的 message，除了 bool 结果，都是可以复用的
-    SendMsgBuffer_t FpBoolBuf;
-    FpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
-    outEdge->sendChunkBatchSize_ * sizeof(bool)); // 先用 chunk 批处理大小
-    FpBoolBuf.header = (NetworkHead_t*) FpBoolBuf.sendBuffer;
-    FpBoolBuf.header->clientID = edgeID_;
-    FpBoolBuf.header->dataSize = outEdge->sendChunkBatchSize_; // 数据大小就是批处理 FP 数量
-    FpBoolBuf.dataBuffer = FpBoolBuf.sendBuffer + sizeof(NetworkHead_t);
-    FpBoolBuf.header->messageType = CLOUD_FP_RESPONSE;
+    sendFpBoolBuf.header->messageType = CLOUD_FP_RESPONSE; //暂不考虑接受来自edge的Fps存在的问题
     // 修改 FP bool 结果，由 absIndexObj_->ProcessFpOneBatch 完成
 
     bool end = false;
+    
     while (!end) {
         // receive fp 
         if (!dataSecureChannel_->ReceiveData(edgeSSL, recvFpBuf->sendBuffer, 
-            recvSize)) {
+            recvSize)) { 
             tool::Logging(myName_.c_str(), "edge closed socket connect, thread exit now.\n");
             dataSecureChannel_->GetClientIp(edgeIP, edgeSSL);
             dataSecureChannel_->ClearAcceptedClientSd(edgeSSL);
@@ -83,10 +79,10 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                     // TODO:每处理一个fp batch，就将bool数组发给edge
                     // ? 每次处理完就发回 edge，是否不必区分 FP_END
                     tool::Logging(myName_.c_str(), "start to process fp one batch...\n");
-                    absIndexObj_->ProcessFpOneBatch(recvFpBuf, upOutSGX);
+                    absIndexObj_->ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, upOutSGX);
                     // 类似 Client/dataSender.cc -> ProcessRecipeEnd() or SendChunks()
                     // 前者不加密；后者加密；当前不加密
-                    if (!dataSecureChannel_->SendData(edgeSSL, FpBoolBuf.sendBuffer, sizeof(NetworkHead_t) + FpBoolBuf.header->dataSize)) {
+                    if (!dataSecureChannel_->SendData(edgeSSL, sendFpBoolBuf.sendBuffer, sizeof(NetworkHead_t) + sendFpBoolBuf.header->dataSize)) {
                         tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
                         exit(EXIT_FAILURE);
                     }

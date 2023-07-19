@@ -79,13 +79,29 @@ void EdgeVar::InitUploadBuffer() {
         sendChunkBatchSize_);
     _outQuery.queryNum = 0;
 
-    // init the recv buffer
+    // init the recv buffer of chunks
     _recvChunkBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
         sendChunkBatchSize_ * sizeof(Chunk_t));
     _recvChunkBuf.header = (NetworkHead_t*) _recvChunkBuf.sendBuffer;
     _recvChunkBuf.header->clientID = _edgeID;
     _recvChunkBuf.header->dataSize = 0;
     _recvChunkBuf.dataBuffer = _recvChunkBuf.sendBuffer + sizeof(NetworkHead_t);
+
+    // init the recv buffer of fps
+    _recvFpBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
+        sendRecipeBatchSize_ * sizeof(Chunk_t));
+    _recvFpBuf.header = (NetworkHead_t*) _recvFpBuf.sendBuffer;
+    _recvFpBuf.header->clientID = _edgeID;
+    _recvFpBuf.header->dataSize = 0;
+    _recvFpBuf.dataBuffer = _recvFpBuf.sendBuffer + sizeof(NetworkHead_t);
+
+    // init the send buffer of fp bool array
+    _sendFpBoolBuf.sendBuffer = (uint8_t*) malloc(sizeof(NetworkHead_t) + 
+        sendRecipeBatchSize_ * sizeof(bool));
+    _sendFpBoolBuf.header = (NetworkHead_t*) _sendFpBoolBuf.sendBuffer;
+    _sendFpBoolBuf.header->clientID = _edgeID;
+    _sendFpBoolBuf.header->dataSize = 0;
+    _sendFpBoolBuf.dataBuffer = _sendFpBoolBuf.sendBuffer + sizeof(NetworkHead_t);
 
     // prepare the input MQ
 #if (MULTI_CLIENT == 1)
@@ -144,6 +160,8 @@ void EdgeVar::DestroyUploadBuffer() {
     free(_outRecipe.entryList);
     free(_outQuery.outQueryBase);
     free(_recvChunkBuf.sendBuffer);
+    free(_recvFpBuf.sendBuffer);
+    free(_sendFpBoolBuf.sendBuffer);
     delete _inputMQ;
     return ;
 }

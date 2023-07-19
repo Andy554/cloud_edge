@@ -152,6 +152,12 @@ typedef struct {
 } BinValue_t;
 
 typedef struct {
+    uint8_t chunkFp[CHUNK_HASH_SIZE]; //密文chunk得到的Fp
+    uint8_t containerID[CONTAINER_ID_LENGTH]; // 我们在 container 里记录了 offset + length
+    // RecipeEntry_t address; // containerID + offset + length
+} RecipeEntry_1_t; // <- BinValue_t;
+
+typedef struct {
     RecipeEntry_t address;
     uint32_t chunkFreq;
     uint32_t idx;
