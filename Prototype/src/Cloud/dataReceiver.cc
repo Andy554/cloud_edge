@@ -40,11 +40,11 @@ DataReceiver::~DataReceiver() {
  * @brief the main process to handle new edge upload-request connection
  * 
  * @param outEdge the edge ptr
- * @param cloudinfo the pointer to the cloud info
+ * @param cloudInfo the pointer to the cloud info
  */
 void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     uint32_t recvSize = 0;
-    uint64_t uploadChunkNum = &outEdge->_uploadChunkNum; //得到edge发送的FP数量
+    uint64_t uploadChunkNum = outEdge->_uploadChunkNum; //得到edge发送的FP数量
     string edgeIP;
     UpOutSGX_t* upOutSGX = &outEdge->_upOutSGX; // 整理后传到 enclave，cloud 虽然没有 enclave，但是传入精简的结构体会不会减少开销
     SendMsgBuffer_t* recvChunkBuf = &outEdge->_recvChunkBuf;
@@ -60,7 +60,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     tool::Logging(myName_.c_str(), "the main thread is running.\n");
 
     // 查询 FP 是否存在结果的 message，除了 bool 结果，都是可以复用的
-    sendFpBoolBuf.header->messageType = CLOUD_FP_RESPONSE; //暂不考虑接受来自edge的Fps存在的问题
+    sendFpBoolBuf->header->messageType = CLOUD_FP_RESPONSE; //暂不考虑接受来自edge的Fps存在的问题
 
     bool end = false;
     RecipeEntry_1_t* fp2CidArr = (RecipeEntry_1_t*) malloc(uploadChunkNum * sizeof(RecipeEntry_1_t));
@@ -84,7 +84,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                     absIndexObj_->ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, fp2CidArr, fpCurNum);
                     // 类似 Client/dataSender.cc -> ProcessRecipeEnd() or SendChunks()
                     // 前者不加密；后者加密；当前不加密
-                    if (!dataSecureChannel_->SendData(edgeSSL, sendFpBoolBuf.sendBuffer, sizeof(NetworkHead_t) + sendFpBoolBuf.header->dataSize)) {
+                    if (!dataSecureChannel_->SendData(edgeSSL, sendFpBoolBuf->sendBuffer, sizeof(NetworkHead_t) + sendFpBoolBuf->header->dataSize)) {
                         tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
                         exit(EXIT_FAILURE);
                     }
@@ -94,7 +94,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
                     // TODO：处理最后一个fp batch，并且将得到的bool数组发回edge
                     tool::Logging(myName_.c_str(), "start to process fp tail batch...\n");
                     absIndexObj_->ProcessFpTailBatch(recvFpBuf, sendFpBoolBuf, fp2CidArr, fpCurNum); 
-                    if (!dataSecureChannel_->SendData(edgeSSL, sendFpBoolBuf.sendBuffer, sizeof(NetworkHead_t) + sendFpBoolBuf.header->dataSize)) {
+                    if (!dataSecureChannel_->SendData(edgeSSL, sendFpBoolBuf->sendBuffer, sizeof(NetworkHead_t) + sendFpBoolBuf->header->dataSize)) {
                         tool::Logging(myName_.c_str(), "send the file not exist reply error.\n");
                         exit(EXIT_FAILURE);
                     }
@@ -165,7 +165,7 @@ void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
         edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 
-    cloudinfo->enclaveProcessTime = totalProcessTime;
-    // Ecall_GetEnclaveInfo(eidSGX_, cloudinfo); // 获取 sgx_info 这里不用吧?
+    cloudInfo->enclaveProcessTime = totalProcessTime;
+    // Ecall_GetEnclaveInfo(eidSGX_, cloudInfo); // 获取 sgx_info 这里不用吧?
     return ;
 }

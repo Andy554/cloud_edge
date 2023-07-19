@@ -41,12 +41,12 @@ private:
     uint64_t readCacheSize_;
     
     // for Server storage ip
-    string edgeID_;
+    uint32_t edgeID_;
     string storageServerIp_;
     int storageServerPort_;
 
     // for Cloud storage ip
-    string cloudID_;
+    uint32_t cloudID_;
     string storageCloudIp_;
     int storageCloudPort_;  
 

@@ -11,7 +11,7 @@
  */
 // #include "leveldbDatabase.h"
 // #include "inMemoryDatabase.h"
-#include "cloudIndex.h" 
+#include "../../include/cloudIndex.h" 
 
 // TODO: 将 Baseline/src/Server/storageCore.cc 适用于Container的新设计：WriteContainer()、SaveChunk()
 // TODO：对 ProcessOneBatch 中进行修改，它调用了 ProcessUniqueChunk() -> SaveChunk() -> WriteContainer()，与我们的设计不太一致
@@ -39,11 +39,11 @@ CloudIndex::CloudIndex(AbsDatabase* indexStore) : AbsIndex(indexStore) {
     #ifdef CLOUD_BASE_LINE
     if (ENABLE_SEALING) {
         if (!this->LoadDedupIndex()) {
-            Cloud::Logging(myName_.c_str(), "do not need to load the previous index.\n"); 
+            tool::Logging(myName_.c_str(), "do not need to load the previous index.\n"); 
         } 
     }
     #endif
-    Cloud::Logging(myName_.c_str(), "init the CloudIndex.\n");
+    tool::Logging(myName_.c_str(), "init the CloudIndex.\n");
 }
 
 /**
@@ -56,13 +56,13 @@ CloudIndex::~CloudIndex() {
         this->PersistDedupIndex();
     }
     #endif
-    Cloud::Logging(myName_.c_str(), "========CloudIndex Info========\n");
-    Cloud::Logging(myName_.c_str(), "logical chunk num: %lu\n", _logicalChunkNum);
-    Cloud::Logging(myName_.c_str(), "logical data size: %lu\n", _logicalDataSize);
-    Cloud::Logging(myName_.c_str(), "unique chunk num: %lu\n", _uniqueChunkNum);
-    Cloud::Logging(myName_.c_str(), "unique data size: %lu\n", _uniqueDataSize);
-    Cloud::Logging(myName_.c_str(), "compressed data size: %lu\n", _compressedDataSize);
-    Cloud::Logging(myName_.c_str(), "===================================\n");
+    tool::Logging(myName_.c_str(), "========CloudIndex Info========\n");
+    tool::Logging(myName_.c_str(), "logical chunk num: %lu\n", _logicalChunkNum);
+    tool::Logging(myName_.c_str(), "logical data size: %lu\n", _logicalDataSize);
+    tool::Logging(myName_.c_str(), "unique chunk num: %lu\n", _uniqueChunkNum);
+    tool::Logging(myName_.c_str(), "unique data size: %lu\n", _uniqueDataSize);
+    tool::Logging(myName_.c_str(), "compressed data size: %lu\n", _compressedDataSize);
+    tool::Logging(myName_.c_str(), "===================================\n");
 }
 
 
@@ -72,17 +72,17 @@ CloudIndex::~CloudIndex() {
  * 更新 file recipe 用的 buffer，buffer 满了，就写入 recipe file
  * @param chunkAddrStr the chunk address string
  * @param inRecipe the recipe buffer
- * @param curClient the current client var
+ * @param curEdge the current edge var
  */
 void CloudIndex::UpdateFileRecipe(string &chunkAddrStr, Recipe_t* inRecipe, 
-    ClientVar* curClient) {
+    EdgeVar* curEdge) {
     memcpy(inRecipe->entryList + inRecipe->recipeNum * sizeof(RecipeEntry_t), 
         chunkAddrStr.c_str(), sizeof(RecipeEntry_t));
     inRecipe->recipeNum++;
 
-    if ((inRecipe->recipeNum % sendRecipeBatchSize_) == 0) {
+    if ((inRecipe->recipeNum % curEdge->sendRecipeBatchSize_) == 0) {
         storageCoreObj_->UpdateRecipeToFile(inRecipe->entryList, 
-            inRecipe->recipeNum, curClient->_recipeWriteHandler);
+            inRecipe->recipeNum, curEdge->_recipeWriteHandler);
         inRecipe->recipeNum = 0; 
     }
     return ;
@@ -113,7 +113,7 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
     for (uint32_t i = 0; i < fpNum; i++) {
         memcpy((uint8_t*)&tmpFpStr[0], fpBuffer + currentOffset, CHUNK_HASH_SIZE);
         memcpy((uint8_t*)fp2CidArr[fpCurNum].chunkFp, fpBuffer + currentOffset, CHUNK_HASH_SIZE);
-        if(!indexStore_.Query(tmpFpStr, tmpChunkAddressStr)) { // 非重复块
+        if(!indexStore_->Query(tmpFpStr, tmpChunkAddressStr)) { // 非重复块
             fpBoolBuf[i] = 1;
             memcpy((uint8_t*)fp2CidArr[fpCurNum].containerID, (uint8_t*)&tmpChunkAddressStr[0], CONTAINER_ID_LENGTH);
         } else { // 重复块
@@ -327,12 +327,12 @@ bool CloudIndex::PersistDedupIndex() {
     }
     
     // init buffer
-    maxBufferSize = Cloud::sendChunkBatchSize_ * (CHUNK_HASH_SIZE + CONTAINER_ID_LENGTH); // CHUNK_HASH_SIZE + sizeof(RecipeEntry_t)
+    maxBufferSize = tool::sendChunkBatchSize_ * (CHUNK_HASH_SIZE + CONTAINER_ID_LENGTH); // CHUNK_HASH_SIZE + sizeof(RecipeEntry_t)
     tmpBuffer = (uint8_t*) malloc(maxBufferSize);
     itemSize = CloudIndexObj_.size();
 
     // persist the item number 先存 Fp2Chunk 的数量，方便以后读
-    Cloud::WriteBufferToFile((uint8_t*)&itemSize, sizeof(itemSize), SEALED_BASELINE_INDEX_PATH);
+    tool::WriteBufferToFile((uint8_t*)&itemSize, sizeof(itemSize), SEALED_BASELINE_INDEX_PATH);
 
     // start to persist the index item 再按预设buffer大小，分批写入数据
     for (auto it = CloudIndexObj_.begin(); it != CloudIndexObj_.end(); it++) {
@@ -344,7 +344,7 @@ bool CloudIndex::PersistDedupIndex() {
         offset += CONTAINER_ID_LENGTH;
         if (offset == maxBufferSize) {
             // the buffer is full, write to the file
-            Cloud::WriteBufferToFile(tmpBuffer, offset, SEALED_BASELINE_INDEX_PATH);
+            tool::WriteBufferToFile(tmpBuffer, offset, SEALED_BASELINE_INDEX_PATH);
             offset = 0;
         }
     }
@@ -352,7 +352,7 @@ bool CloudIndex::PersistDedupIndex() {
     // 写入最后一批不足整个 buffer 的数据
     if (offset != 0) {
         // handle the tail data
-        Cloud::WriteBufferToFile(tmpBuffer, offset, SEALED_BASELINE_INDEX_PATH);
+        tool::WriteBufferToFile(tmpBuffer, offset, SEALED_BASELINE_INDEX_PATH);
         offset = 0;
     }
 
@@ -385,16 +385,16 @@ bool CloudIndex::LoadDedupIndex() {
     }
 
     // read the item number; 先读 Fp2Chunk num
-    Cloud::ReadFileToBuffer((uint8_t*)&itemNum, sizeof(itemNum), SEALED_BASELINE_INDEX_PATH); 
+    tool::ReadFileToBuffer((uint8_t*)&itemNum, sizeof(itemNum), SEALED_BASELINE_INDEX_PATH); 
 
     // init buffer
-    maxBufferSize = Cloud::sendChunkBatchSize_ * (CHUNK_HASH_SIZE + CONTAINER_ID_LENGTH);
+    maxBufferSize = tool::sendChunkBatchSize_ * (CHUNK_HASH_SIZE + CONTAINER_ID_LENGTH);
     tmpBuffer = (uint8_t*) malloc(maxBufferSize);
 
-    size_t expectReadBatchNum = (itemNum / Cloud::sendChunkBatchSize_); // 期望处理完整批次数量
+    size_t expectReadBatchNum = (itemNum / tool::sendChunkBatchSize_); // 期望处理完整批次数量
     for (size_t i = 0; i < expectReadBatchNum; i++) {
-        Cloud::ReadFileToBuffer(tmpBuffer, maxBufferSize, SEALED_BASELINE_INDEX_PATH);
-        for (size_t item = 0; item < Cloud::sendChunkBatchSize_; 
+        tool::ReadFileToBuffer(tmpBuffer, maxBufferSize, SEALED_BASELINE_INDEX_PATH);
+        for (size_t item = 0; item < tool::sendChunkBatchSize_; 
             item++) {
             memcpy(&keyStr[0], tmpBuffer + offset, CHUNK_HASH_SIZE);
             offset += CHUNK_HASH_SIZE;
@@ -410,7 +410,7 @@ bool CloudIndex::LoadDedupIndex() {
     // 处理不足一个完整批次的数据
     size_t remainItemNum = itemNum - CloudIndexObj_.size();
     if (remainItemNum != 0) {
-        Cloud::ReadFileToBuffer(tmpBuffer, maxBufferSize, SEALED_BASELINE_INDEX_PATH);
+        tool::ReadFileToBuffer(tmpBuffer, maxBufferSize, SEALED_BASELINE_INDEX_PATH);
         for (size_t i = 0; i < remainItemNum; i++) {
             memcpy(&keyStr[0], tmpBuffer + offset, CHUNK_HASH_SIZE);
             offset += CHUNK_HASH_SIZE;

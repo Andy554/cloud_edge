@@ -18,6 +18,7 @@
 
 // #include "sgx_urts.h"
 // #include "sgx_capable.h"
+#include "edgeVar.h"
 #include "../src/Enclave/include/storeOCall.h"
 // #include "../build/src/Enclave/storeEnclave_u.h"
 
@@ -50,8 +51,8 @@ class CloudIndex : public AbsIndex {
          * @param sendFpBoolBuf the send Fp bool buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void CloudIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum)
+        void ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
 
         /**
          * @brief process FingerPrint one batch 
@@ -60,8 +61,8 @@ class CloudIndex : public AbsIndex {
          * @param sendFpBoolBuf the send Fp bool buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void CloudIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) 
+        void ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
 
 
         /**
@@ -70,14 +71,14 @@ class CloudIndex : public AbsIndex {
          * @param recvChunkBuf the recv chunk buffer
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf, UpOutSGX_t* upOutSGX){};
+        void ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf, UpOutSGX_t* upOutSGX){return;};
 
         /**
          * @brief process the tail segment
          * 
          * @param upOutSGX the structure to store the enclave related variable
          */
-        void ProcessTailBatch(UpOutSGX_t* upOutSGX){};
+        void ProcessTailBatch(UpOutSGX_t* upOutSGX){return;};
 };
 #endif
 
