@@ -56,13 +56,13 @@ CloudIndex::~CloudIndex() {
         this->PersistDedupIndex();
     }
     #endif
-    tool::Logging(myName_.c_str(), "========CloudIndex Info========\n");
-    tool::Logging(myName_.c_str(), "logical chunk num: %lu\n", _logicalChunkNum);
-    tool::Logging(myName_.c_str(), "logical data size: %lu\n", _logicalDataSize);
-    tool::Logging(myName_.c_str(), "unique chunk num: %lu\n", _uniqueChunkNum);
-    tool::Logging(myName_.c_str(), "unique data size: %lu\n", _uniqueDataSize);
-    tool::Logging(myName_.c_str(), "compressed data size: %lu\n", _compressedDataSize);
-    tool::Logging(myName_.c_str(), "===================================\n");
+    // tool::Logging(myName_.c_str(), "========CloudIndex Info========\n");
+    // tool::Logging(myName_.c_str(), "logical chunk num: %lu\n", _logicalChunkNum);
+    // tool::Logging(myName_.c_str(), "logical data size: %lu\n", _logicalDataSize);
+    // tool::Logging(myName_.c_str(), "unique chunk num: %lu\n", _uniqueChunkNum);
+    // tool::Logging(myName_.c_str(), "unique data size: %lu\n", _uniqueDataSize);
+    // tool::Logging(myName_.c_str(), "compressed data size: %lu\n", _compressedDataSize);
+    // tool::Logging(myName_.c_str(), "===================================\n");
 }
 
 

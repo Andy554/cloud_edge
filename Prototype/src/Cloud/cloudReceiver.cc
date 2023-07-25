@@ -9,7 +9,7 @@
  * 
  */
 
-#include "../../include/dataReceiver.h"
+#include "../../include/cloudReceiver.h"
 
 
 /**
@@ -18,7 +18,7 @@
  * @param absIndexObj the pointer to the index obj
  * @param dataSecureChannel the pointer to the security channel
  */
-DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel) {
+CloudReceiver::CloudReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChannel) {
     // set up the connection and interface
     dataSecureChannel_ = dataSecureChannel;
     absIndexObj_ = absIndexObj;
@@ -29,7 +29,7 @@ DataReceiver::DataReceiver(AbsIndex* absIndexObj, SSLConnection* dataSecureChann
  * @brief Destroy the DataReceiver object
  * 
  */
-DataReceiver::~DataReceiver() {
+CloudReceiver::~CloudReceiver() {
     fprintf(stderr, "========DataReceiver Info========\n");
     fprintf(stderr, "total receive batch num: %lu\n", batchNum_);
     fprintf(stderr, "total receive recipe end num: %lu\n", recipeEndNum_);
@@ -42,7 +42,7 @@ DataReceiver::~DataReceiver() {
  * @param outEdge the edge ptr
  * @param cloudInfo the pointer to the cloud info
  */
-void DataReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
+void CloudReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
     uint32_t recvSize = 0;
     uint64_t uploadChunkNum = outEdge->_uploadChunkNum; //得到edge发送的FP数量
     string edgeIP;

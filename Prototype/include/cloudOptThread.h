@@ -14,7 +14,7 @@
 
 // for upload 
 #include "dataWriter.h"
-#include "dataReceiver.h"
+#include "cloudReceiver.h"
 #include "absIndex.h"
 #include "cloudIndex.h"
 #include "enclaveIndex.h"
@@ -44,7 +44,7 @@ class CloudOptThread {
         RAUtil* raUtil_;
 
         // for upload
-        DataReceiver* dataReceiverObj_;
+        CloudReceiver* cloudReceiverObj_;
         AbsIndex* absIndexObj_;
         DataWriter* dataWriterObj_;
         StorageCore* storageCoreObj_;
@@ -90,8 +90,7 @@ class CloudOptThread {
          * @param eidSGX sgx enclave id
          * @param indexType index type
          */
-        CloudOptThread(SSLConnection* dataSecureChannel, AbsDatabase* fp2ChunkDB,
-            sgx_enclave_id_t eidSGX, int indexType);
+        CloudOptThread(SSLConnection* dataSecureChannel, AbsDatabase* fp2ChunkDB);
 
         /**
          * @brief Destroy the Cloud Opt Thread object

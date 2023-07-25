@@ -26,7 +26,7 @@ class EdgeChunker : public AbsRecvDecoder {
          * @param eidSGX the id to the enclave
          */
         EdgeChunker(SSLConnection* dataSecureChannel, 
-            sgx_enclave_id_t eidSGX, bool* _isInCloud);
+            sgx_enclave_id_t eidSGX);
 
         /**
          * @brief Destroy the Enclave Recv Decoder object
@@ -40,20 +40,4 @@ class EdgeChunker : public AbsRecvDecoder {
          * @param outClient the out-enclave client ptr
          */
         void Run(ClientVar* outClient);
-
-        /**
-         * @brief Get the Required Containers object 
-         * 
-         * @param outClient the out-enclave client ptr
-         */
-        void GetReqContainers(ClientVar* outClient);
-
-        /**
-         * @brief send the restore chunk to the client
-         * 
-         * @param sendChunkBuf the send chunk buffer
-         * @param clientSSL the ssl connection
-         */
-        void SendBatchChunks(SendMsgBuffer_t* sendChunkBuf, 
-            SSL* clientSSL);
 };

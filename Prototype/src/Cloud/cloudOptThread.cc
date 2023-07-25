@@ -20,19 +20,17 @@
  * @param indexType 
  */
 CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel, 
-    AbsDatabase* fp2ChunkDB, sgx_enclave_id_t eidSGX, int indexType) {
+    AbsDatabase* fp2ChunkDB) {
     dataSecureChannel_ = dataSecureChannel;
-    fp2ChunkDB_ = fp2ChunkDB;
-    eidSGX_ = eidSGX;
-    indexType_ = indexType;        
+    fp2ChunkDB_ = fp2ChunkDB;       
 
     // init the upload
     dataWriterObj_ = new DataWriter();
     storageCoreObj_ = new StorageCore();
     absIndexObj_ = new CloudIndex(fp2ChunkDB_);
     absIndexObj_->SetStorageCoreObj(storageCoreObj_);
-    dataReceiverObj_ = new DataReceiver(absIndexObj_, dataSecureChannel_);
-    dataReceiverObj_->SetStorageCoreObj(storageCoreObj_);
+    cloudReceiverObj_ = new CloudReceiver(absIndexObj_, dataSecureChannel_);
+    cloudReceiverObj_->SetStorageCoreObj(storageCoreObj_);
 
     // init the restore
     recvDecoderObj_ = new EnclaveRecvDecoder(dataSecureChannel_, 
@@ -70,7 +68,7 @@ CloudOptThread::~CloudOptThread() {
     delete dataWriterObj_;
     delete storageCoreObj_;
     delete absIndexObj_;
-    delete dataReceiverObj_;
+    delete cloudReceiverObj_;
     delete recvDecoderObj_;
     delete raUtil_;
 
@@ -216,7 +214,7 @@ void CloudOptThread::Run(SSL* edgeSSL) {
                 exit(EXIT_FAILURE);
             }
 
-            thTmp = new boost::thread(attrs, boost::bind(&DataReceiver::Run, dataReceiverObj_,
+            thTmp = new boost::thread(attrs, boost::bind(&CloudReceiver::Run, cloudReceiverObj_,
                 outEdge, &cloudInfo));
             thList.push_back(thTmp); 
 /*
@@ -246,9 +244,9 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             //     &outEdge->_resOutSGX.sgxClient);
             // TODO: Ecall_Init_Client
 
-            thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
-                outEdge));
-            thList.push_back(thTmp);
+            // thTmp = new boost::thread(attrs, boost::bind(&EnclaveRecvDecoder::Run, recvDecoderObj_,
+            //     outEdge));
+            // thList.push_back(thTmp);
 
             // send the restore-response to the client (include the file recipe header)
             recvBuf.header->messageType = CLOUD_LOGIN_RESPONSE;

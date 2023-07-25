@@ -54,6 +54,12 @@ class EnclaveIndex : public AbsIndex {
          * @param upOutSGX the structure to store the enclave related variable
          */
         void ProcessTailBatch(UpOutSGX_t* upOutSGX);
+
+        void ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
+
+        void ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
+            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
 };
 
 #endif

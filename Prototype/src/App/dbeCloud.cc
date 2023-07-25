@@ -15,7 +15,7 @@
 #include "../../include/absDatabase.h"
 
 // for main cloud thread
-#include "../../include/cloudOptThead.h"
+#include "../../include/cloudOptThread.h"
 
 // to receive the interrupt
 #include <signal.h>

@@ -3,8 +3,8 @@
 
 
 EdgeChunker::EdgeChunker(SSLConnection* sslConnection,
-    sgx_enclave_id_t eidSGX, bool* _isInCloud) : AbsRecvDecoder(sslConnection) {
-    isInCloud = _isInCloud;
+    sgx_enclave_id_t eidSGX) : AbsRecvDecoder(sslConnection) {
+    isInCloud = (bool*)malloc(sendRecipeBatchSize_ * sizeof(bool));
     eidSGX_ = eidSGX;
     Ecall_Init_Restore(eidSGX_);
     tool::Logging(myName_.c_str(), "init the EdgeChunker.\n");
@@ -15,6 +15,7 @@ EdgeChunker::~EdgeChunker() {
     fprintf(stderr, "========EdgeChunker Info========\n");
     fprintf(stderr, "read container from file num: %lu\n", readFromContainerFileNum_);
     fprintf(stderr, "=======================================\n");
+    free(isInCloud);
 }
 
 /**
@@ -37,9 +38,12 @@ void EdgeChunker::Run(ClientVar* outClient) {
     tool::Logging(myName_.c_str(), "start to read the file recipe.\n");
     gettimeofday(&sProcTime, NULL);
     bool end = false;
-    uint32_t offset = 0;
     tool::Logging(myName_.c_str(), "sendRecipeBatchSize: %lu.\n", sendRecipeBatchSize_);
     while (!end) {
+        if (!dataSecureChannel_->ReceiveData(clientSSL, (uint8_t*)isInCloud, recvSize)) {
+            tool::Logging(myName_.c_str(), "receive cloud isInCloud fail.\n");
+            exit(EXIT_FAILURE);
+        }
         // read a batch of the recipe entries from the recipe file
         outClient->_recipeReadHandler.read((char*)readRecipeBuf, 
             CHUNK_HASH_SIZE * sendRecipeBatchSize_);
@@ -52,10 +56,8 @@ void EdgeChunker::Run(ClientVar* outClient) {
         }
 
         totalRestoreRecipeNum_ += recipeEntryNum;
-        tool::Logging(myName_.c_str(), "recipe entry num: %lu, ready to restore a batch.\n", recipeEntryNum);
         Ecall_ProcRecipeBatchForEdgeUpload(eidSGX_, readRecipeBuf, recipeEntryNum, 
-            resOutSGX, isInCloud + offset);
-        offset += recipeEntryNum;
+            resOutSGX, isInCloud);
     }
 
     Ecall_ProcRecipeTailBatchForEdgeUpload(eidSGX_, resOutSGX);
@@ -63,84 +65,5 @@ void EdgeChunker::Run(ClientVar* outClient) {
     gettimeofday(&eProcTime, NULL);
     totalProcTime += tool::GetTimeDiff(sProcTime, eProcTime);
 
-    return ;
-}
-
-/**
- * @brief Get the Required Containers object 
- * 
- * @param outClient the out-enclave client ptr
- */
-void EdgeChunker::GetReqContainers(ClientVar* outClient) {
-    ReqContainer_t* reqContainer = &outClient->_reqContainer;
-    uint8_t* idBuffer = reqContainer->idBuffer; 
-    uint8_t** containerArray = reqContainer->containerArray;
-    ReadCache* containerCache = outClient->_containerCache;
-    uint32_t idNum = reqContainer->idNum; 
-
-    // retrieve each container
-    string containerNameStr;
-    for (size_t i = 0; i < idNum; i++) {
-        containerNameStr.assign((char*) (idBuffer + i * CONTAINER_ID_LENGTH), 
-            CONTAINER_ID_LENGTH);
-        // step-1: check the container cache
-        bool cacheHitStatus = containerCache->ExistsInCache(containerNameStr);
-        if (cacheHitStatus) {
-            // step-2: exist in the container cache, read from the cache, directly copy the data from the cache
-            memcpy(containerArray[i], containerCache->ReadFromCache(containerNameStr), 
-                MAX_CONTAINER_SIZE);
-            continue ;
-        } 
-
-        // step-3: not exist in the contain cache, read from disk
-        ifstream containerIn;
-        string readFileNameStr = containerNamePrefix_ + containerNameStr + containerNameTail_;
-        containerIn.open(readFileNameStr, ifstream::in | ifstream::binary);
-
-        if (!containerIn.is_open()) {
-            tool::Logging(myName_.c_str(), "cannot open the container: %s\n", readFileNameStr.c_str());
-            exit(EXIT_FAILURE);
-        }
-
-        // get the data section size (total chunk size - metadata section)
-        containerIn.seekg(0, ios_base::end);
-        int readSize = containerIn.tellg();
-        containerIn.seekg(0, ios_base::beg);
-
-        tool::Logging(myName_.c_str(), "container size: %d\n", readSize);
-
-        // read the metadata section
-        int containerSize = 0;
-        containerSize = readSize;
-        // read compression data
-        containerIn.read((char*)containerArray[i], containerSize);
-
-        if (containerIn.gcount() != containerSize) {
-            tool::Logging(myName_.c_str(), "read size %lu cannot match expected size: %d for container %s.\n",
-                containerIn.gcount(), containerSize, readFileNameStr.c_str());
-            exit(EXIT_FAILURE);
-        } 
-
-        // close the container file
-        containerIn.close();
-        readFromContainerFileNum_++;
-        containerCache->InsertToCache(containerNameStr, containerArray[i], containerSize);
-    }
-    return ;
-}
-
-/**
- * @brief send the restore chunk to the client
- * 
- * @param sendChunkBuf the send chunk buffer
- * @param clientSSL the ssl connection
- */
-void EdgeChunker::SendBatchChunks(SendMsgBuffer_t* sendChunkBuf, 
-    SSL* clientSSL) {
-    if (!dataSecureChannel_->SendData(clientSSL, sendChunkBuf->sendBuffer, 
-        sizeof(NetworkHead_t) + sendChunkBuf->header->dataSize)) {
-        tool::Logging(myName_.c_str(), "send the batch of restored chunks error.\n");
-        exit(EXIT_FAILURE);
-    }
     return ;
 }

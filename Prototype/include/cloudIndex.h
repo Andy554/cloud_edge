@@ -37,6 +37,9 @@ class CloudIndex : public AbsIndex {
          */
         CloudIndex(AbsDatabase* indexStore/*, int indexType, sgx_enclave_id_t eidSGX*/);
 
+        void UpdateFileRecipe(string &chunkAddrStr, Recipe_t* inRecipe, 
+            EdgeVar* curEdge);
+
         /**
          * @brief Destroy the Enclave Simple Index object
          * 

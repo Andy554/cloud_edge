@@ -382,9 +382,6 @@ void ServerOptThread::Run(SSL* clientSSL) {
 
         uploaderObj_->UploadFileUpRecipe(fileNameHash);
 
-        //Todo:接收返回的bool数组
-        bool* isInCloud;
-
         char fileHashBuf[CHUNK_HASH_SIZE * 2 + 1];
         for (uint32_t i = 0; i < CHUNK_HASH_SIZE; i++) {
             sprintf(fileHashBuf + i * 2, "%02x", fileNameHash[i]);
@@ -393,7 +390,7 @@ void ServerOptThread::Run(SSL* clientSSL) {
         fileName.assign(fileHashBuf, CHUNK_HASH_SIZE * 2);
         recipePath = config.GetRecipeRootPath() + fileName + config.GetRecipeSuffix();
 
-        edgeChunkerObj_ = new EdgeChunker(dataSecureChannel, eidSGX_, isInCloud);
+        edgeChunkerObj_ = new EdgeChunker(dataSecureChannel, eidSGX_);
         outClient = new ClientVar(edgeID, serverConnection, DOWNLOAD_OPT, recipePath, upRecipePath);
 
         thTmp = new boost::thread(attrs, boost::bind(&EdgeChunker::Run, edgeChunkerObj_, outClient));

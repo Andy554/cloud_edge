@@ -26,8 +26,6 @@ class EdgeVar{
     private:
         string myName_ = "EdgeVar";
         int optType_; // the operation type (upload / download)
-        uint64_t sendChunkBatchSize_;
-        uint64_t sendRecipeBatchSize_;
         string recipePath_;
         string upRecipePath_;
         
@@ -56,6 +54,8 @@ class EdgeVar{
         void DestroyRestoreBuffer();
     public:
         uint32_t _edgeID;
+        uint64_t sendChunkBatchSize_;
+        uint64_t sendRecipeBatchSize_;
 
         // for handling file recipe
         ofstream _recipeWriteHandler;
