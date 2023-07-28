@@ -100,6 +100,9 @@ class AbsIndex {
         virtual void ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
             RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) = 0;
 
+        virtual void ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr) = 0;
+
+        virtual void ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr) = 0;
         /**
          * @brief Set the Storage Core Obj object
          * 

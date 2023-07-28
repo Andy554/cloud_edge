@@ -26,7 +26,7 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
 
     // init the upload
     dataWriterObj_ = new DataWriter();
-    storageCoreObj_ = new StorageCore();
+    storageCoreObj_ = new CloudStorageCore();
     absIndexObj_ = new CloudIndex(fp2ChunkDB_);
     absIndexObj_->SetStorageCoreObj(storageCoreObj_);
     cloudReceiverObj_ = new CloudReceiver(absIndexObj_, dataSecureChannel_);

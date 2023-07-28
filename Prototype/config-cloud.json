@@ -24,7 +24,7 @@
         "storageServerIp_": "192.168.5.103",
         "storageServerPort_": 17778,
         "edgeID_": 1,
-        "clientID_": 1,
+        // "clientID_": 1,
         "localSecret_": "12345",
         "sendChunkBatchSize_": 128,
         "sendRecipeBatchSize_": 1024,

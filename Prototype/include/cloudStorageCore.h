@@ -1,5 +1,5 @@
-#ifndef BASICDEDUP_STORAGECORE_h
-#define BASICDEDUP_STORAGECORE_h
+#ifndef BASICDEDUP_CLOUD_STORAGECORE_h
+#define BASICDEDUP_CLOUD_STORAGECORE_h
 
 #include "configure.h"
 #include "chunkStructure.h"
@@ -7,15 +7,17 @@
 #include "absDatabase.h"
 #include "dataWriter.h"
 #include "define.h"
+#include "edgeVar.h"
+#include "storageCore.h"
 
 #define NEW_FILE_NAME_HASH 1
 #define OLD_FILE_NAME_HASH 2
 
 using namespace std;
 
-class StorageCore {
+class CloudStorageCore : public StorageCore {
     private:
-        string myName_ = "StorageCore";
+        string myName_ = "CloudStorageCore";
         std::string recipeNamePrefix_;
         std::string recipeNameTail_;
     public:
@@ -55,20 +57,35 @@ class StorageCore {
          */
         void UpdateRecipeToFileWithMLEKey(const uint8_t* recipeBuffer, size_t recipeEntryNum, ofstream& fileRecipeHandler);
 
-        
+        /**
+         * @brief write the container to the disk and assign a new container
+         * 
+         * @param outEdge the edge ptr
+         */
+        void WriteContainer(EdgeVar* outEdge);
+
+        /**
+         * @brief save the chunk to the storage serve
+         * 
+         * @param outEdge the edge ptr
+         * @param chunkData the chunk data buffer
+         * @param chunkSize the chunk size
+         * @param chunkAddr the chunk address (return)
+         */
+        void SaveChunk(EdgeVar* outEdge, char* chunkData, uint32_t chunkSize, RecipeEntry_t* chunkAddr);
 
         /**
          * @brief Construct a new Storage Core object
          * 
          */
-        StorageCore();
+        CloudStorageCore();
         
         /**
          * @brief Destroy the Storage Core object
          * 
          */
-        ~StorageCore();
+        ~CloudStorageCore();
 };
 
 
-#endif // !BASICDEDUP_STORAGECORE_h
+#endif // !BASICDEDUP_CLOUD_STORAGECORE_h

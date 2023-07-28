@@ -26,3 +26,4 @@ cd ./bin
 mkdir Containers Recipes UpRecipes
 cd ..
 cp config.json ./bin
+cp config-cloud.json ./bin

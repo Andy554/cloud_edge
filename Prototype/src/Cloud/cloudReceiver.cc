@@ -111,7 +111,7 @@ void CloudReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             totalProcessTime += tool::GetTimeDiff(sProcTime, eProcTime);
         }
     }
-    /*
+    
     while (true) {
         // receive data 
         if (!dataSecureChannel_->ReceiveData(edgeSSL, recvChunkBuf->sendBuffer, 
@@ -122,16 +122,16 @@ void CloudReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             break;
         } else {
             gettimeofday(&sProcTime, NULL);
-            switch (recvChunkBuf->header->messageType) { // recvFpBuf->header->messageType
+            switch (recvChunkBuf->header->messageType) { 
                 case EDGE_UPLOAD_CHUNK: {
                     tool::Logging(myName_.c_str(), "start to process chunk one batch...\n");
-                    absIndexObj_->ProcessOneBatch(recvChunkBuf, upOutSGX); // ? chunk 存 recvChunkBuf
+                    absIndexObj_->ProcessChunkOneBatch(recvChunkBuf, fp2CidArr); // ? chunk 存 recvChunkBuf
                     batchNum_++;
                     break;
                 }
                 case EDGE_UPLOAD_CHUNK_END: {
                     // this is the end of one upload 
-                    absIndexObj_->ProcessTailBatch(upOutSGX);
+                    absIndexObj_->ProcessChunkTailBatch(recvChunkBuf, fp2CidArr);
                     // finalize the file recipe
                     storageCoreObj_->FinalizeRecipe((FileRecipeHead_t*)recvChunkBuf->dataBuffer,
                         outEdge->_recipeWriteHandler); // 写入 file recipe 信息 fileSize and totalChunkNum
@@ -153,7 +153,7 @@ void CloudReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             totalProcessTime += tool::GetTimeDiff(sProcTime, eProcTime);
         }
     }
-
+    /*
     // process the last container 
     if (curContainer->currentSize != 0) {
         tool::Logging(myName_.c_str(), "start to write last container\n"); 
