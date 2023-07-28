@@ -101,9 +101,10 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
     uint8_t* fpBuffer = recvFpBuf->dataBuffer;
     uint32_t fpNum = recvFpBuf->header->currentItemNum;
     string tmpFpStr; // 存放每个读出的 Fp
+    //TODO: 后续将string修改为char*
     tmpFpStr.resize(CHUNK_HASH_SIZE, 0);
     string tmpChunkAddressStr; // 读入 tmpFpStr 已有的 Container ID / Address
-    tmpChunkAddressStr.resize(CONTAINER_ID_LENGTH, 0);
+    tmpChunkAddressStr.resize(sizeof(RecipeEntry_t), 0);
     uint32_t currentOffset = 0; // 这里 buffer 从 fpBuffer 开始，不需要考虑 header 的偏移
     uint32_t tmpChunkSize = 0;
     uint8_t* fpBoolBuf = sendFpBoolBuf->dataBuffer;
@@ -134,6 +135,27 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
 void CloudIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
 RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
     ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, fp2CidArr, fpCurNum);
+    return ;
+}
+
+void CloudIndex::ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr,
+EdgeVar* outEdge){
+    uint8_t* chunkBuffer = recvChunkBuf->dataBuffer;
+    uint32_t chunkNum = recvChunkBuf->header->currentItemNum;
+    
+    uint32_t currentOffset = 0;
+    for (uint32_t i = 0; i < chunkNum; i++) {
+        uint32_t chunkSize = 0;
+        memcpy(chunkSize, &recvChunkBuf->dataBuffer, sizeof(uint32_t));
+        string chunkData;
+        chunkData.resize(chunkSize, 0);
+        memcpy((uint8_t*)&tmpFpStr[0], fpBuffer + currentOffset, CHUNK_HASH_SIZE);
+        storageCoreObj_->SaveChunk(outEdge, chunkData, chunkSize, chunkAddr);
+    }
+    return ;
+}
+
+void CloudIndex::ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr){
     return ;
 }
 
