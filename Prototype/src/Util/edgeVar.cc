@@ -118,6 +118,11 @@ void EdgeVar::InitUploadBuffer() {
         CHUNK_HASH_SIZE);
     _outUpRecipe.recipeNum = 0;
 
+    // _cloudRecipe.entryList = (uint8_t*) malloc(sendRecipeBatchSize_ * 
+    //     sizeof(FpIdxEntry_t));
+    _cloudRecipe.curIdx = 0;
+    _cloudRecipe.recipeNum = 0;
+
     // build the param passed to the enclave
     _upOutSGX.curContainer = &_curContainer;
     _upOutSGX.outRecipe = &_outRecipe;

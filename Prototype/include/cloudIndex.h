@@ -55,7 +55,7 @@ class CloudIndex : public AbsIndex {
          * @param upOutSGX the structure to store the enclave related variable
          */
         void ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
+            EdgeVar* outEdge);
 
         /**
          * @brief process FingerPrint one batch 
@@ -65,21 +65,21 @@ class CloudIndex : public AbsIndex {
          * @param upOutSGX the structure to store the enclave related variable
          */
         void ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-            RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum);
+            EdgeVar* outEdge);
 
         /**
          * @brief process FingerPrint one batch 
          * 接受来自 Edge 的 chunkBuf，并将其存入Cloud container中
          * @param recvChunkBuf the recv Fp buffer
          */
-        void ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr);
+        void ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge);
 
         /**
          * @brief process FingerPrint one batch 
          * 处理最后一批来自 Edge 的 chunkBuf，并将其存入Cloud container中
          * @param recvChunkBuf the recv Fp buffer
          */
-        void ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr);
+        void ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge);
 
         /**
          * @brief process one batch 

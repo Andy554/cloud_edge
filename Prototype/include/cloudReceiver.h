@@ -6,6 +6,7 @@
 #include "edgeVar.h"
 #include "sslConnection.h"
 #include "absIndex.h"
+#include "cloudStorageCore.h"
 
 class CloudReceiver {
     private:
@@ -20,7 +21,7 @@ class CloudReceiver {
         AbsIndex* absIndexObj_;
 
         // pass the storage core obj
-        StorageCore* storageCoreObj_;
+        CloudStorageCore* storageCoreObj_;
 
     public:
         

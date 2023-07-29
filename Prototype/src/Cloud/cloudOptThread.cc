@@ -208,6 +208,8 @@ void CloudOptThread::Run(SSL* edgeSSL) {
                 FileRecipeHead_t* fileRecipeHead = (FileRecipeHead_t*)(recvBuf.dataBuffer + CHUNK_HASH_SIZE); // 通过 recvBuf free，所以实际释放该指针是设为 NULL
                 tool::Logging(myName_.c_str(), "find file recipe head. file size : %llu, total chunk num : %llu\n", fileRecipeHead->fileSize, fileRecipeHead->totalChunkNum);
                 outEdge->_uploadChunkNum = fileRecipeHead->totalChunkNum;
+                outEdge->_cloudRecipe.entryList = (uint8_t*) malloc(outEdge->_uploadChunkNum * 
+        sizeof(FpIdxEntry_t));
                 fileRecipeHead = NULL;
             } else { // read FileRecipeHead_t 失败
                 tool::Logging(myName_.c_str(), "clouldn't find file recipe head.\n");

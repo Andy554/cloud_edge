@@ -75,6 +75,7 @@ class EdgeVar{
         SendMsgBuffer_t _recvFpBuf; 
         Recipe_t _outRecipe; // the buffer to store ciphertext recipe
         Recipe_t _outUpRecipe;
+        CloudRecipe_t _cloudRecipe;
 
         // restore buffer parameters
         uint8_t* _readRecipeBuf;

@@ -126,6 +126,18 @@ typedef struct {
 } Recipe_t;
 
 typedef struct {
+    uint32_t curIdx; //当前需要写入的 FpIdxEntry 标号
+    uint32_t recipeNum; // List 总数量
+    uint8_t* entryList; // 包含若干个 FpIdxEntry_t 元素
+} CloudRecipe_t;
+
+typedef struct {
+    uint8_t chunkFp[CHUNK_HASH_SIZE]; //密文chunk得到的Fp
+    //uint8_t containerID[CONTAINER_ID_LENGTH]; // 我们在 container 里记录了 offset + length
+    RecipeEntry_t address; // containerID + offset + length
+} FpIdxEntry_t; // 参考 BinValue_t;
+
+typedef struct {
     uint32_t containerID; // the ID to current restore buffer
     uint8_t chunkHash[CHUNK_HASH_SIZE];
 } EnclaveRecipeEntry_t;
@@ -150,12 +162,6 @@ typedef struct {
     uint8_t chunkFp[CHUNK_HASH_SIZE];
     RecipeEntry_t address;
 } BinValue_t;
-
-typedef struct {
-    uint8_t chunkFp[CHUNK_HASH_SIZE]; //密文chunk得到的Fp
-    uint8_t containerID[CONTAINER_ID_LENGTH]; // 我们在 container 里记录了 offset + length
-    // RecipeEntry_t address; // containerID + offset + length
-} RecipeEntry_1_t; // <- BinValue_t;
 
 typedef struct {
     RecipeEntry_t address;

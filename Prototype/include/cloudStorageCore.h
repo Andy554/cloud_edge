@@ -40,6 +40,18 @@ class CloudStorageCore : public StorageCore {
             ofstream& fileRecipeHandler);
 
         /**
+         * @brief 将 CloudRecipe 写入到磁盘中。先写入 FileRecipeHead ，然后将 CloudRecipe 中的
+         * entryList 转换成若干个 recipeBuffer ，并依次调用 UpdateRecipeToFile 将 RecipeEntry
+         * 写入到磁盘中。
+         * 
+         * @param  cloudRecipe the cloud recipe     
+         * @param  recipeHead the recipe header      
+         * @param  fileRecipeHandler the recipe file handler
+         */
+        void FinalizeCloudRecipe(CloudRecipe_t* cloudRecipe, FileRecipeHead_t* recipeHead, 
+            ofstream& fileRecipeHandler, uint64_t recipeBatchSize);
+
+        /**
          * @brief update the file recipe to the disk
          * 
          * @param recipeBuffer the pointer to the recipe buffer

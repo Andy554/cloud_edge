@@ -86,6 +86,39 @@ void CloudStorageCore::UpdateRecipeToFileWithMLEKey(const uint8_t* recipeBuffer,
     return ;
 }
 
+/**
+ * @brief 将 CloudRecipe 写入到磁盘中。先写入 FileRecipeHead ，然后将 CloudRecipe 中的
+ * entryList 转换成若干个 recipeBuffer ，并依次调用 UpdateRecipeToFile 将 RecipeEntry
+ * 写入到磁盘中。
+ * 
+ * @param  cloudRecipe the cloud recipe     
+ * @param  recipeHead the recipe header      
+ * @param  fileRecipeHandler the recipe file handler
+ */
+void CloudStorageCore::FinalizeCloudRecipe(CloudRecipe_t* cloudRecipe, FileRecipeHead_t* recipeHead, ofstream& fileRecipeHandler, uint64_t recipeBatchSize){
+    FinalizeRecipe(recipeHead, fileRecipeHandler);
+    uint8_t* FpIdxEntryList = cloudRecipe->entryList;
+    uint32_t chunkNum = cloudRecipe->recipeNum;
+    uint8_t* recipeBuffer = (uint8_t*)malloc(sizeof(RecipeEntry_t) * recipeBatchSize);
+    uint64_t recipeBufferOffset = 0;
+    for (uint32_t i = 0; i < chunkNum; i++) {
+        uint8_t* tmpChunkAddr = FpIdxEntryList + i * sizeof(FpIdxEntry_t)  
+                            + CHUNK_HASH_SIZE; // 第 uniqueFpIdx 个 entry
+        memcpy(recipeBuffer + recipeBufferOffset * sizeof(RecipeEntry_t), tmpChunkAddr, sizeof(RecipeEntry_t));
+        recipeBufferOffset ++;
+        if(recipeBufferOffset >= recipeBatchSize){
+            UpdateRecipeToFile(recipeBuffer, recipeBatchSize, fileRecipeHandler);
+            recipeBufferOffset = 0;
+        }
+    }
+    if(recipeBufferOffset > 0){
+        UpdateRecipeToFile(recipeBuffer, recipeBatchSize, fileRecipeHandler);
+    }
+    free(recipeBuffer);
+    return ;
+}
+
+//TODO: 需修改
 void CloudStorageCore::WriteContainer(EdgeVar* outEdge){
 #if (MULTI_CLIENT == 1) 
     dataWriterObj_->SaveToFile(outClientPtr->_curContainer);
@@ -124,6 +157,7 @@ void CloudStorageCore::SaveChunk(EdgeVar* outEdge, char* chunkData, uint32_t chu
     curContainer->currentSize = writeOffset;
 
     chunkAddr->offset = saveOffset;
+    memcpy(chunkAddr->containerName , curContainer->containerID, CONTAINER_ID_LENGTH);
     /*
     writtenDataSize_ += chunkSize;
     writtenChunkNum_++;

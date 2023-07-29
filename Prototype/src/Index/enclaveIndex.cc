@@ -67,8 +67,6 @@ void EnclaveIndex::ProcessOneBatch(SendMsgBuffer_t* recvChunkBuf,
     return ;
 }
 
-void EnclaveIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-    RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum){}
+void EnclaveIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, EdgeVar* outEdge){}
 
-void EnclaveIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-    RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum){}
+void EnclaveIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, EdgeVar* outEdge){}

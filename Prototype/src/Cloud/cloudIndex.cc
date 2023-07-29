@@ -97,7 +97,7 @@ void CloudIndex::UpdateFileRecipe(string &chunkAddrStr, Recipe_t* inRecipe,
  * @param upOutSGX the structure to store the enclave related variable
  */
 void CloudIndex::ProcessFpOneBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
+EdgeVar* outEdge) {
     uint8_t* fpBuffer = recvFpBuf->dataBuffer;
     uint32_t fpNum = recvFpBuf->header->currentItemNum;
     string tmpFpStr; // 存放每个读出的 Fp
@@ -110,13 +110,19 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
     uint8_t* fpBoolBuf = sendFpBoolBuf->dataBuffer;
     sendFpBoolBuf->header->currentItemNum = fpNum;
     sendFpBoolBuf->header->dataSize = fpNum;
+    CloudRecipe_t* cloudRecipe = outEdge->_cloudRecipe;
+    uint32_t fpCurNum = cloudRecipe->recipeNum; //当前 Recipe 中已记录的 fp 数量（即 FpIdxEntry 数量）
     
     for (uint32_t i = 0; i < fpNum; i++) {
         memcpy((uint8_t*)&tmpFpStr[0], fpBuffer + currentOffset, CHUNK_HASH_SIZE);
-        memcpy((uint8_t*)fp2CidArr[fpCurNum].chunkFp, fpBuffer + currentOffset, CHUNK_HASH_SIZE);
+        memcpy((uint8_t*)(cloudRecipe->entryList + fpCurNum * sizeof(FpIdxEntry_t)), fpBuffer + currentOffset, CHUNK_HASH_SIZE); 
+
         if(!indexStore_->Query(tmpFpStr, tmpChunkAddressStr)) { // 非重复块
             fpBoolBuf[i] = 1;
-            memcpy((uint8_t*)fp2CidArr[fpCurNum].containerID, (uint8_t*)&tmpChunkAddressStr[0], CONTAINER_ID_LENGTH);
+            memcpy((uint8_t*)(
+                cloudRecipe->entryList + fpCurNum * sizeof(FpIdxEntry_t) // List 的最新索引地址
+                + CHUNK_HASH_SIZE // Fp
+                ), (uint8_t*)&tmpChunkAddressStr[0], CONTAINER_ID_LENGTH);
         } else { // 重复块
             // 直接得到对应 Containder ID，存在 tmpChunkAddressStr
             fpBoolBuf[i] = 0;
@@ -124,6 +130,7 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
         fpCurNum++;
         currentOffset += CHUNK_HASH_SIZE;
     }
+    cloudRecipe->recipeNum = fpCurNum;
     return ;   
 }
 
@@ -133,35 +140,63 @@ RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
  * @param upOutSGX the pointer to enclave-related var
  */
 void CloudIndex::ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
-RecipeEntry_1_t* fp2CidArr, uint64_t& fpCurNum) {
-    ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, fp2CidArr, fpCurNum);
+EdgeVar* outEdge) {
+    ProcessFpOneBatch(recvFpBuf, sendFpBoolBuf, outEdge);
     return ;
 }
 
-void CloudIndex::ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr,
-EdgeVar* outEdge){
+void CloudIndex::ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge){
     uint8_t* chunkBuffer = recvChunkBuf->dataBuffer;
     uint32_t chunkNum = recvChunkBuf->header->currentItemNum;
+    CloudRecipe_t* cloudRecipe = outEdge->_cloudRecipe;
+    uint8_t* FpIdxEntryList = cloudRecipe->entryList;
+    uint32_t uniqueFpIdx = cloudRecipe->curIdx; 
     
-    uint32_t currentOffset = 0;
-    for (uint32_t i = 0; i < chunkNum; i++) {
-        uint32_t chunkSize = 0;
-        memcpy(chunkSize, chunkBuffer + currentOffset, sizeof(uint32_t));
-        currentOffset += sizeof(uint32_t);
+    uint32_t currentOffset = 0; //recvChunkBuf的当前偏移量
+    RecipeEntry_t* chunkAddr = (RecipeEntry_t*)malloc(sizeof(RecipeEntry_t));
+    uint8_t* cmpStr = (uint8_t*)malloc(CONTAINER_ID_LENGTH); //用于比较是否为空的临时数组
+    memset(cmpStr, 0, CONTAINER_ID_LENGTH);
+    string tmpFpStr; // 存放每个读出的 Fp
+    //TODO: 后续将string修改为char*
+    tmpFpStr.resize(CHUNK_HASH_SIZE); //用于存放 FpIdxEntryList 中的FP
+    uint32_t chunkSize = 0; 
+    string chunkData;
 
-        string chunkData;
+    for (uint32_t i = 0; i < chunkNum; i++) {
+        memcpy(&chunkSize, chunkBuffer + currentOffset, sizeof(uint32_t));
+
+        currentOffset += sizeof(uint32_t);
         chunkData.resize(chunkSize);
         memcpy((uint8_t*)&chunkData[0], chunkBuffer + currentOffset, chunkSize);
-        storageCoreObj_->SaveChunk(outEdge, chunkData.c_str(), chunkSize, chunkAddr);
-        currentOffset += chunkSize;
-        //TODO: 将对应的CID插入到对应的FP索引
 
+        storageCoreObj_->SaveChunk(outEdge, chunkData.c_str(), chunkSize, chunkAddr); //将分配的 CID 及偏移量、长度等存入到 chunkAddr 
+
+        //TODO: 将对应的 RecipeEntry 插入到对应的 FP 索引
+        uint8_t flag = 0;
+        while(!flag){     
+            uint8_t* tmpChunkAddr = FpIdxEntryList + uniqueFpIdx * sizeof(FpIdxEntry_t)  
+                            + CHUNK_HASH_SIZE; // 第 uniqueFpIdx 个 entry
+            
+            if(memcmp(cmpStr, tmpChunkAddr, CONTAINER_ID_LENGTH) == 0){ 
+                //说明第 uniqueFpIdx 个 entry 中不含 address，也即找到对应的 unique FP
+                memcpy(tmpChunkAddr, chunkAddr, sizeof(RecipeEntry_t)); //将chunkAddr拷贝到entry中的 address
+                memcpy((uint8_t*)&tmpFpStr[0], FpIdxEntryList + uniqueFpIdx * sizeof(FpIdxEntry_t), CHUNK_HASH_SIZE); //将 entry 中的 FP 拷贝到临时的 FP 串中
+                indexStore_->InsertBuffer(tmpFpStr, (char*)chunkAddr, sizeof(RecipeEntry_t);
+                //insert
+                flag = 1;
+            }
+            uniqueFpIdx++;
+        }
+        currentOffset += chunkSize;
     }
+    cloudRecipe->curIdx = uniqueFpIdx;
+    free(chunkAddr);
+    free(cmpStr);
     return ;
 }
 
-void CloudIndex::ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, RecipeEntry_1_t* fp2CidArr){
-    ProcessChunkOneBatch(recvChunkBuf, fp2CidArr);
+void CloudIndex::ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge){
+    //ProcessChunkOneBatch(recvChunkBuf, outEdge);
     return ;
 }
 
