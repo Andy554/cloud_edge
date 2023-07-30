@@ -153,15 +153,15 @@ void CloudReceiver::Run(EdgeVar* outEdge, CloudInfo_t* cloudInfo) {
             totalProcessTime += tool::GetTimeDiff(sProcTime, eProcTime);
         }
     }
-    /*
+    
     // process the last container 
     if (curContainer->currentSize != 0) {
         tool::Logging(myName_.c_str(), "start to write last container\n"); 
-        Ocall_WriteContainer(outEdge);
+        storageCoreObj_->WriteContainer(outEdge);
         tool::Logging(myName_.c_str(), "write last container success\n");
     }
     outEdge->_inputMQ->done_ = true; 
-    */
+    
     tool::Logging(myName_.c_str(), "thread exit for %s, ID: %u, enclave total process time: %lf\n", 
         edgeIP.c_str(), outEdge->_edgeID, totalProcessTime);
 

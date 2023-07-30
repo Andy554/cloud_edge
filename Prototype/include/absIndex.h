@@ -18,6 +18,7 @@
 #include "cryptoPrimitive.h"
 #include "messageQueue.h"
 #include "storageCore.h"
+#include "edgeVar.h"
 
 using namespace std;
 

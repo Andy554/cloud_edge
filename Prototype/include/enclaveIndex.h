@@ -60,6 +60,10 @@ class EnclaveIndex : public AbsIndex {
 
         void ProcessFpTailBatch(SendMsgBuffer_t* recvFpBuf, SendMsgBuffer_t* sendFpBoolBuf, 
             EdgeVar* outEdge);
+
+        void ProcessChunkOneBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge);
+
+        void ProcessChunkTailBatch(SendMsgBuffer_t* recvChunkBuf, EdgeVar* outEdge);
 };
 
 #endif

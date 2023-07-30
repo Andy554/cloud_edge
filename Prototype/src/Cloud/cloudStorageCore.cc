@@ -119,12 +119,13 @@ void CloudStorageCore::FinalizeCloudRecipe(CloudRecipe_t* cloudRecipe, FileRecip
 }
 
 //TODO: 需修改
+// 参考自 Prototype/src/Enclave/ocallSrc/storeOCall.cc 中的 WriteContainer()
 void CloudStorageCore::WriteContainer(EdgeVar* outEdge){
 #if (MULTI_CLIENT == 1) 
     dataWriterObj_->SaveToFile(outClientPtr->_curContainer);
 #else
     outEdge->_inputMQ->Push(outEdge->_curContainer);
-    printf("Ocall-write container: push container success.\n");
+    printf("Write Cloud container: push container success.\n");
 #endif
     // reset current container
     tool::CreateUUID(outEdge->_curContainer.containerID,
