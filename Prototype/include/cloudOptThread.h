@@ -45,9 +45,9 @@ class CloudOptThread {
 
         // for upload
         CloudReceiver* cloudReceiverObj_;
-        AbsIndex* absIndexObj_;
+        CloudIndex* cloudIndexObj_;
         DataWriter* dataWriterObj_;
-        StorageCore* storageCoreObj_;
+        CloudStorageCore* storageCoreObj_;
         Uploader* uploaderObj_;
 
         // for restore

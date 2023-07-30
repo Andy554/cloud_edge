@@ -84,7 +84,7 @@ class CloudStorageCore : public StorageCore {
          * @param chunkSize the chunk size
          * @param chunkAddr the chunk address (return)
          */
-        void SaveChunk(EdgeVar* outEdge, char* chunkData, uint32_t chunkSize, RecipeEntry_t* chunkAddr);
+        void SaveChunk(EdgeVar* outEdge, const char* chunkData, uint32_t chunkSize, RecipeEntry_t* chunkAddr);
 
         /**
          * @brief Construct a new Storage Core object

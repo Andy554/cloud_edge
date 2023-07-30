@@ -19,6 +19,7 @@
 // #include "sgx_urts.h"
 // #include "sgx_capable.h"
 #include "edgeVar.h"
+#include "cloudStorageCore.h"
 #include "../src/Enclave/include/storeOCall.h"
 // #include "../build/src/Enclave/storeEnclave_u.h"
 
@@ -27,6 +28,9 @@ class CloudIndex : public AbsIndex {
         string myName_ = "CloudIndex";
         // the variable to record the enclave information
         // sgx_enclave_id_t eidSGX_;
+    protected:
+        // for storageCore
+        CloudStorageCore* cloudStorageCoreObj_;
     public:
         /**
          * @brief Construct a new Enclave Simple Index object
@@ -45,6 +49,13 @@ class CloudIndex : public AbsIndex {
          * 
          */
         ~CloudIndex();
+
+        /**
+         * @brief Set the Cloud Storage Core Obj object
+         * 
+         * @param cloudStorageCoreObj the pointer to the cloudStorageCoreObj
+         */
+        void SetCloudStorageCoreObj(CloudStorageCore* cloudStorageCoreObj);
 
         /**
          * @brief process FingerPrint one batch 

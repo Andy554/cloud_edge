@@ -142,7 +142,7 @@ void CloudStorageCore::WriteContainer(EdgeVar* outEdge){
  * @param chunkSize the chunk size
  * @param chunkAddr the chunk address (return)
  */
-void CloudStorageCore::SaveChunk(EdgeVar* outEdge, char* chunkData, uint32_t chunkSize, RecipeEntry_t* chunkAddr){
+void CloudStorageCore::SaveChunk(EdgeVar* outEdge, const char* chunkData, uint32_t chunkSize, RecipeEntry_t* chunkAddr){
     Container_t* curContainer = &outEdge->_curContainer;
     chunkAddr->length = chunkSize;
     uint32_t saveOffset = curContainer->currentSize;

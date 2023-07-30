@@ -27,10 +27,10 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
     // init the upload
     dataWriterObj_ = new DataWriter();
     storageCoreObj_ = new CloudStorageCore();
-    absIndexObj_ = new CloudIndex(fp2ChunkDB_);
-    absIndexObj_->SetStorageCoreObj(storageCoreObj_);
-    cloudReceiverObj_ = new CloudReceiver(absIndexObj_, dataSecureChannel_);
-    cloudReceiverObj_->SetStorageCoreObj(storageCoreObj_);
+    cloudIndexObj_ = new CloudIndex(fp2ChunkDB_);
+    cloudIndexObj_->SetCloudStorageCoreObj(storageCoreObj_);
+    cloudReceiverObj_ = new CloudReceiver(cloudIndexObj_, dataSecureChannel_);
+    cloudReceiverObj_->SetCloudStorageCoreObj(storageCoreObj_);
 
     // init the restore
     recvDecoderObj_ = new EnclaveRecvDecoder(dataSecureChannel_, 
@@ -66,8 +66,9 @@ CloudOptThread::CloudOptThread(SSLConnection* dataSecureChannel,
 CloudOptThread::~CloudOptThread() {
     OutEnclave::Destroy();
     delete dataWriterObj_;
+    delete cloudIndexObj_;
     delete storageCoreObj_;
-    delete absIndexObj_;
+    delete cloudIndexObj_;
     delete cloudReceiverObj_;
     delete recvDecoderObj_;
     delete raUtil_;
@@ -219,13 +220,13 @@ void CloudOptThread::Run(SSL* edgeSSL) {
             thTmp = new boost::thread(attrs, boost::bind(&CloudReceiver::Run, cloudReceiverObj_,
                 outEdge, &cloudInfo));
             thList.push_back(thTmp); 
-/*
+
 #if (MULTI_CLIENT == 0)
             thTmp = new boost::thread(attrs, boost::bind(&DataWriter::Run, dataWriterObj_,
                 outEdge->_inputMQ));
             thList.push_back(thTmp);
 #endif
-*/
+
             // send the upload-response to the cloud
             recvBuf.header->messageType = CLOUD_LOGIN_RESPONSE;
             if (!dataSecureChannel_->SendData(edgeSSL, recvBuf.sendBuffer, 

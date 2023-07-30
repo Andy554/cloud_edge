@@ -54,7 +54,7 @@ class CloudReceiver {
          * 
          * @param storageCoreObj the pointer to the storage core obj
          */
-        void SetStorageCoreObj(StorageCore* storageCoreObj) {
+        void SetCloudStorageCoreObj(CloudStorageCore* storageCoreObj) {
             storageCoreObj_ = storageCoreObj;
             return ;
         }
