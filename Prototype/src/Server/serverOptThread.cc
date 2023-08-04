@@ -356,11 +356,16 @@ void ServerOptThread::Run(SSL* clientSSL) {
     gettimeofday(&eTime, NULL);
     totalTime += tool::GetTimeDiff(sTime, eTime);
 
-    if(1){ //TODO: 判断edge剩余容量大小
+    StatfsInfo currStatfsInfo;    
+	currStatfsInfo.getDiskInfo("/home/cluster/LJH/ECStore/Prototype/bin/Containers");//获取磁盘信息结构体  
+	int availRate = currStatfsInfo.calDiskAvailRate();//计算磁盘剩余空间可用率 
+	printf("availRate: %%%d \n",availRate);
+
+    if(availRate < DISK_AVAIL_RATE_LOW){ 
         uint32_t edgeID = config.GetClientID();
         
-        SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageServerIP(), 
-        config.GetStoragePort(), IN_CLIENTSIDE);
+        SSLConnection* dataSecureChannel = new SSLConnection(config.GetStorageCloudIP(), 
+        config.GetStorageCloudPort(), IN_CLIENTSIDE);
         pair<int, SSL*> serverConnectionRecord = dataSecureChannel->ConnectSSL();
         SSL* serverConnection = serverConnectionRecord.second;
           

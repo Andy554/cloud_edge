@@ -112,4 +112,8 @@ enum OPT_TYPE {UPLOAD_OPT = 0, DOWNLOAD_OPT, RA_OPT};
 enum LOCK_TYPE {SESSION_LCK_WRITE = 0, SESSION_LCK_READ, TOP_K_LCK_WRITE,
     TOP_K_LCK_READ};
 
+//for the dist avail rate limit
+static const double DISK_AVAIL_RATE_HIGH = 90;
+static const double DISK_AVAIL_RATE_LOW = 89;
+
 #endif

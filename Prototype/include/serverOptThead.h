@@ -30,6 +30,8 @@
 // for restore
 #include "enclaveRecvDecoder.h"
 
+#include "statfsInfo.h"
+
 extern Configure config;
 class ServerOptThread {
     private:
